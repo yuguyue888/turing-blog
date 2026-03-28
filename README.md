@@ -35,18 +35,63 @@
 
 ---
 
+### 版本说明
+
+| 版本 | 说明 | 状态 |
+|------|------|------|
+| **v1.0.2** | Node.js 20，修复兼容性 | ✅ **推荐** |
+| v1.0.1 | Node.js 18，Docker 镜像 | ❌ 已弃用 |
+| v1.0.0 | Node.js 18，源代码包 | ⚠️ 可用 |
+
+---
+
+## 🐳 Docker 镜像部署（推荐）
+
+### 下载 Docker 镜像（v1.0.2）
+
+```bash
+# 1. 创建目录
+mkdir -p /volume3/docker/turing-blog
+cd /volume3/docker/turing-blog
+
+# 2. 下载镜像
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.2/turing-blog-backend-node20.tar
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.2/turing-blog-frontend.tar
+
+# 3. 加载镜像
+docker load -i turing-blog-backend-node20.tar
+docker load -i turing-blog-frontend.tar
+
+# 4. 验证镜像
+docker images | grep turing-blog
+
+# 5. 下载配置文件（如果没有）
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.0/turing-blog-linux-x64.tar.gz
+tar -xzf turing-blog-linux-x64.tar.gz
+
+# 6. 启动服务
+docker compose up -d
+
+# 7. 查看日志
+docker compose logs -f
+```
+
+---
+
+## 📦 源代码包部署
+
 ### Windows 用户
-1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases/tag/v1.0.0
 2. **下载**: `turing-blog-windows-x64.tar.gz`
 3. **解压**: 使用 7-Zip 或 WinRAR
 4. **运行**: 双击 `start-server.bat`
 5. **访问**: http://localhost:5173
 
 ### Linux 用户
-1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases/tag/v1.0.0
 2. **下载并解压**:
    ```bash
-   # 从 Releases 页面下载 tar.gz 文件
+   wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.0/turing-blog-linux-x64.tar.gz
    tar -xzf turing-blog-linux-x64.tar.gz
    cd turing-blog
    
@@ -57,18 +102,34 @@
 3. **访问**: http://localhost:5173
 
 ### macOS 用户
-1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases/tag/v1.0.0
 2. **下载**: 选择对应版本
    - Intel Mac: `turing-blog-darwin-x64.tar.gz`
    - Apple Silicon (M1/M2/M3): `turing-blog-darwin-arm64.tar.gz`
 3. **解压并运行**:
    ```bash
+   wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.0/turing-blog-darwin-arm64.tar.gz
    tar -xzf turing-blog-darwin-*.tar.gz
    cd turing-blog
    chmod +x start-server.sh
    ./start-server.sh
    ```
 4. **访问**: http://localhost:5173
+
+---
+
+## 🔧 系统要求
+
+### Docker 部署
+- Docker 20.10+
+- 端口 3001 (后端)
+- 端口 5173 (前端)
+- 最低 1GB 内存
+
+### 源码部署
+- Node.js 20+ (推荐 22.x)
+- npm 10+
+- 最低 512MB 内存
 
 ---
 
@@ -314,21 +375,48 @@ npm install
 npm run dev
 ```
 
-## 📦 Docker 部署
+## 🐳 Docker 部署
 
-### 使用 Docker Compose（推荐）
+### 方式1：下载预构建镜像（推荐）
+
 ```bash
-docker-compose up -d
+# 1. 下载镜像
+cd /volume3/docker/turing-blog
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.2/turing-blog-backend-node20.tar
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.2/turing-blog-frontend.tar
+
+# 2. 加载镜像
+docker load -i turing-blog-backend-node20.tar
+docker load -i turing-blog-frontend.tar
+
+# 3. 下载配置文件
+wget https://github.com/yuguyue888/turing-blog/releases/download/v1.0.0/turing-blog-linux-x64.tar.gz
+tar -xzf turing-blog-linux-x64.tar.gz
+
+# 4. 启动服务
+docker compose up -d
 ```
 
-### 手动构建
-```bash
-# 构建镜像
-docker build -f Dockerfile.frontend -t turing-blog-frontend .
-docker build -f Dockerfile.backend -t turing-blog-backend .
+### 方式2：从源码构建
 
-# 运行容器
-docker-compose up -d
+```bash
+# 克隆项目
+git clone https://github.com/yuguyue888/turing-blog.git
+cd turing-blog
+
+# 构建镜像
+docker build -f Dockerfile.backend -t turing-blog-backend:latest .
+docker build -f Dockerfile.frontend -t turing-blog-frontend:latest .
+
+# 启动服务
+docker compose up -d
+```
+
+### 方式3：Docker Compose（已下载镜像）
+
+```bash
+# 确保镜像已加载
+docker compose up -d
 ```
 
 访问: http://localhost:5173
@@ -427,9 +515,9 @@ VITE_GA_MEASUREMENT_ID=your-ga-id
 
 ## 🐳 Docker 支持
 
-### 镜像信息
-- **前端**: Nginx + Vue 构建 (25MB 压缩后)
-- **后端**: Node.js Alpine (63MB 压缩后)
+### 镜像信息（v1.0.2）
+- **后端**: Node.js 20 Alpine (282 MB)
+- **前端**: Nginx + Vue (24 MB)
 
 ### 端口
 - 前端: 5173
@@ -439,6 +527,41 @@ VITE_GA_MEASUREMENT_ID=your-ga-id
 ```yaml
 volumes:
   - ./data:/app/data
+```
+
+### 常用命令
+
+```bash
+# 启动服务
+docker compose up -d
+
+# 停止服务
+docker compose down
+
+# 查看日志
+docker compose logs -f
+
+# 重启服务
+docker compose restart
+
+# 查看状态
+docker compose ps
+```
+
+### 故障排查
+
+```bash
+# 查看后端日志
+docker compose logs -f backend
+
+# 查看前端日志
+docker compose logs -f frontend
+
+# 进入容器
+docker compose exec backend sh
+
+# 检查端口占用
+netstat -tlnp | grep -E '3001|5173'
 ```
 
 ## 📝 API 文档
