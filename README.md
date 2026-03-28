@@ -27,26 +27,26 @@
 
 ## 📥 安装包下载
 
+### ⚠️ 重要说明
+**请通过 GitHub Releases 下载安装包，不要直接从仓库下载！**
+
+### 下载地址
+**https://github.com/yuguyue888/turing-blog/releases**
+
+---
+
 ### Windows 用户
-1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
-2. **系统要求**: Windows 10/11 (64位)
-3. **安装步骤**:
-   ```powershell
-   # 下载 turing-blog-windows-x64.zip
-   # 解压到任意目录
-   # 双击 start-server.bat
-   ```
-4. **访问**: http://localhost:5173
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+2. **下载**: `turing-blog-windows-x64.tar.gz`
+3. **解压**: 使用 7-Zip 或 WinRAR
+4. **运行**: 双击 `start-server.bat`
+5. **访问**: http://localhost:5173
 
 ### Linux 用户
-1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
-2. **系统要求**: Ubuntu 20.04+ / CentOS 8+ (64位)
-3. **安装步骤**:
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+2. **下载并解压**:
    ```bash
-   # 下载
-   wget https://github.com/yuguyue888/turing-blog/releases/latest/download/turing-blog-linux-x64.tar.gz
-   
-   # 解压
+   # 从 Releases 页面下载 tar.gz 文件
    tar -xzf turing-blog-linux-x64.tar.gz
    cd turing-blog
    
@@ -54,21 +54,17 @@
    chmod +x start-server.sh
    ./start-server.sh
    ```
-4. **访问**: http://localhost:5173
+3. **访问**: http://localhost:5173
 
 ### macOS 用户
-1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
-2. **系统要求**: macOS 11+ (Intel/Apple Silicon)
-3. **安装步骤**:
+1. **访问 Releases**: https://github.com/yuguyue888/turing-blog/releases
+2. **下载**: 选择对应版本
+   - Intel Mac: `turing-blog-darwin-x64.tar.gz`
+   - Apple Silicon (M1/M2/M3): `turing-blog-darwin-arm64.tar.gz`
+3. **解压并运行**:
    ```bash
-   # 下载 turing-blog-darwin-x64.tar.gz (Intel)
-   # 或 turing-blog-darwin-arm64.tar.gz (M1/M2)
-   
-   # 解压
    tar -xzf turing-blog-darwin-*.tar.gz
    cd turing-blog
-   
-   # 启动
    chmod +x start-server.sh
    ./start-server.sh
    ```
