@@ -25,27 +25,297 @@
 - 🐳 **Docker 部署** - 一键容器化部署
 - 🔒 **API 认证** - 安全的接口保护
 
+## 📥 安装包下载
+
+### Windows 用户
+1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
+2. **系统要求**: Windows 10/11 (64位)
+3. **安装步骤**:
+   ```powershell
+   # 下载 turing-blog-windows-x64.zip
+   # 解压到任意目录
+   # 双击 start-server.bat
+   ```
+4. **访问**: http://localhost:5173
+
+### Linux 用户
+1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
+2. **系统要求**: Ubuntu 20.04+ / CentOS 8+ (64位)
+3. **安装步骤**:
+   ```bash
+   # 下载
+   wget https://github.com/yuguyue888/turing-blog/releases/latest/download/turing-blog-linux-x64.tar.gz
+   
+   # 解压
+   tar -xzf turing-blog-linux-x64.tar.gz
+   cd turing-blog
+   
+   # 启动
+   chmod +x start-server.sh
+   ./start-server.sh
+   ```
+4. **访问**: http://localhost:5173
+
+### macOS 用户
+1. **下载地址**: [GitHub Releases](https://github.com/yuguyue888/turing-blog/releases)
+2. **系统要求**: macOS 11+ (Intel/Apple Silicon)
+3. **安装步骤**:
+   ```bash
+   # 下载 turing-blog-darwin-x64.tar.gz (Intel)
+   # 或 turing-blog-darwin-arm64.tar.gz (M1/M2)
+   
+   # 解压
+   tar -xzf turing-blog-darwin-*.tar.gz
+   cd turing-blog
+   
+   # 启动
+   chmod +x start-server.sh
+   ./start-server.sh
+   ```
+4. **访问**: http://localhost:5173
+
+---
+
 ## 🚀 快速开始
 
 ### 环境要求
-- Node.js >= 20.19.0
+- Node.js >= 20.19.0 (推荐 22.x)
 - npm >= 10.0.0
+- 内存: 最低 512MB，推荐 1GB+
+- 磁盘: 最低 100MB 可用空间
 
-### 安装依赖
+### 方式1：源码安装（开发者）
+
+#### 安装依赖
 ```bash
 npm install
 ```
 
-### 开发模式
+#### 开发模式
 ```bash
 npm run dev
 ```
 访问: http://localhost:5173
 
-### 生产构建
+#### 生产构建
 ```bash
 npm run build
 npm run preview
+```
+
+### 方式2：Docker 部署（推荐生产环境）
+
+#### 安装 Docker
+- **Windows**: [Docker Desktop](https://www.docker.com/products/docker-desktop)
+- **Linux**:
+  ```bash
+  # Ubuntu/Debian
+  curl -fsSL https://get.docker.com | sh
+  
+  # CentOS/RHEL
+  yum install docker-ce docker-ce-cli containerd.io
+  systemctl start docker
+  ```
+- **macOS**: [Docker Desktop](https://www.docker.com/products/docker-desktop)
+
+#### 运行容器
+```bash
+# 克隆项目
+git clone https://github.com/yuguyue888/turing-blog.git
+cd turing-blog
+
+# 一键启动
+docker-compose up -d
+
+# 查看状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+访问: http://localhost:5173
+
+### 方式3：直接下载安装包（普通用户）
+
+详见上方 **📥 安装包下载** 章节
+
+---
+
+## 💻 详细部署指南
+
+### Windows 部署
+
+#### 系统要求
+- 操作系统: Windows 10/11 (64位)
+- 内存: 最低 512MB
+- 磁盘: 最低 100MB
+- 浏览器: Chrome/Edge/Firefox 最新版
+
+#### 方式1：安装包部署
+1. 下载 `turing-blog-windows-x64.zip`
+2. 解压到 `C:\turing-blog\`
+3. 双击 `start-server.bat`
+4. 浏览器访问 http://localhost:5173
+
+#### 方式2：源码部署
+```powershell
+# 安装 Node.js (如果没有)
+# 下载: https://nodejs.org/
+# 选择 LTS 版本 (22.x)
+
+# 克隆项目
+git clone https://github.com/yuguyue888/turing-blog.git
+cd turing-blog
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 或构建生产版本
+npm run build
+npm run preview
+```
+
+#### 防火墙配置
+```powershell
+# 开放端口 5173 和 3001
+New-NetFirewallRule -DisplayName "Turing Blog" -Direction Inbound -LocalPort 5173,3001 -Protocol TCP -Action Allow
+```
+
+---
+
+### Linux 部署
+
+#### 系统要求
+- 操作系统: Ubuntu 20.04+ / CentOS 8+ / Debian 11+
+- 内存: 最低 512MB
+- 磁盘: 最低 100MB
+- 架构: x86_64 (AMD64)
+
+#### 方式1：安装包部署
+```bash
+# 1. 下载
+wget https://github.com/yuguyue888/turing-blog/releases/latest/download/turing-blog-linux-x64.tar.gz
+
+# 2. 解压
+tar -xzf turing-blog-linux-x64.tar.gz
+cd turing-blog
+
+# 3. 赋予执行权限
+chmod +x start-server.sh
+
+# 4. 启动服务
+./start-server.sh
+
+# 5. 后台运行（可选）
+nohup ./start-server.sh > turing-blog.log 2>&1 &
+```
+
+#### 方式2：源码部署
+```bash
+# 安装 Node.js 22.x
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 克隆项目
+git clone https://github.com/yuguyue888/turing-blog.git
+cd turing-blog
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 或构建生产版本
+npm run build
+npm run preview
+```
+
+#### 系统服务（systemd）
+```bash
+# 创建服务文件
+sudo nano /etc/systemd/system/turing-blog.service
+```
+
+内容：
+```ini
+[Unit]
+Description=Turing Blog Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/turing-blog
+ExecStart=/usr/bin/node /opt/turing-blog/server.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启动服务：
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable turing-blog
+sudo systemctl start turing-blog
+sudo systemctl status turing-blog
+```
+
+#### 防火墙配置
+```bash
+# Ubuntu/Debian (ufw)
+sudo ufw allow 5173/tcp
+sudo ufw allow 3001/tcp
+sudo ufw reload
+
+# CentOS/RHEL (firewalld)
+sudo firewall-cmd --permanent --add-port=5173/tcp
+sudo firewall-cmd --permanent --add-port=3001/tcp
+sudo firewall-cmd --reload
+```
+
+---
+
+### macOS 部署
+
+#### 系统要求
+- 操作系统: macOS 11 Big Sur+
+- 架构: Intel (x86_64) 或 Apple Silicon (arm64)
+- 内存: 最低 512MB
+
+#### 方式1：安装包部署
+```bash
+# Intel Mac
+wget https://github.com/yuguyue888/turing-blog/releases/latest/download/turing-blog-darwin-x64.tar.gz
+
+# Apple Silicon (M1/M2/M3)
+wget https://github.com/yuguyue888/turing-blog/releases/latest/download/turing-blog-darwin-arm64.tar.gz
+
+# 解压并运行
+tar -xzf turing-blog-darwin-*.tar.gz
+cd turing-blog
+chmod +x start-server.sh
+./start-server.sh
+```
+
+#### 方式2：源码部署
+```bash
+# 安装 Homebrew (如果没有)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 安装 Node.js
+brew install node@22
+
+# 克隆并运行
+git clone https://github.com/yuguyue888/turing-blog.git
+cd turing-blog
+npm install
+npm run dev
 ```
 
 ## 📦 Docker 部署
