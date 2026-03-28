@@ -1,0 +1,796 @@
+{
+  "news": [
+    {
+      "id": "segmentfault-1774630765923-1",
+      "title": "2ONES 2025 年度盘点：筑基十载，全新以赴",
+      "url": "https://segmentfault.com/a/1190000047603750",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:59:25.923Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "...",
+      "summary": "...",
+      "content": "<html><head></head><body><p><img width=\"723\" height=\"1856\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT31\" alt=\"\" title=\"\"><img width=\"723\" height=\"4785\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT32\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"2473\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT33\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"4003\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT34\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"2900\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnUhD\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"3460\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4m\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"988\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4o\" alt=\"\" title=\"\" loading=\"lazy\"></p></body></html>",
+      "translated": false,
+      "originalLang": "unknown"
+    },
+    {
+      "id": "segmentfault-1774630767636-2",
+      "title": "3MindSpore ：动静图融合的低代码高性能实践",
+      "url": "https://segmentfault.com/a/1190000047577992",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:59:27.636Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "在边缘计算、车载终端等异构硬件场景下，MindSpore 模型部署面临 “动态调试灵活度” 与 “静态推理性能” 无法兼顾 、硬件算子适配性差两大核心痛点。本次分享基于 MindSpore 的jit动态编译特性与异构硬件算子重写机制，构建 “动静图混合执行 + 硬件感知算子优化” 的低代码部署方案，...",
+      "summary": "在边缘计算、车载终端等异构硬件场景下，MindSpore 模型部署面临 “动态调试灵活度” 与 “静态推理性能” 无法兼顾 、硬件算子适配性差两大核心痛点。本次分享基于 MindSpore 的jit动态编译特性与异构硬件算子重写机制，构建 “动静图混合执行 + 硬件感知算子优化” 的低代码部署方案，...",
+      "content": "<html><head></head><body><p>在边缘计算、车载终端等异构硬件场景下，MindSpore 模型部署面临 <strong>“动态调试灵活度” 与 “静态推理性能” 无法兼顾 </strong>、硬件算子适配性差两大核心痛点。本次分享基于 MindSpore 的jit动态编译特性与异构硬件算子重写机制，构建 “动静图混合执行 + 硬件感知算子优化” 的低代码部署方案，实现模型在 CPU/GPU/Ascend/ARM 等多平台的高性能适配 —— 推理延迟降低 65%，代码量减少 40%，同时保留动态图的灵活调试能力，附全流程部署代码与跨平台性能对比。</p><h2>1. 动静图混合执行的精细化控制：调试与性能的平衡</h2><p>场景：动态图（PyNative Mode）支持实时打印中间张量、断点调试，适合模型迭代阶段；静态图（Graph Mode）通过计算图优化实现高性能推理，但调试成本高。传统部署需在两种模式间反复切换，且无法针对不同模块差异化配置。</p><p>MindSpore 技术实践：</p><p>利用jit装饰器的局部编译特性，对模型的高频推理模块做静态编译优化，对低频调试模块保留动态执行能力，同时通过input_signature限制输入形状，避免静态编译的形状敏感问题：</p><pre><code class=\"python\">import mindspore as ms\nimport mindspore.nn as nn\nimport mindspore.ops as ops\nfrom functools import partial\n\nms.set_context(mode=ms.PYNATIVE_MODE)  # 全局开启动态图\n\n# 1. 动态调试模块：保留动态执行能力，用于异常检测\nclass DynamicDebugModule(nn.Cell):\n    def __init__(self, debug=True):\n        super().__init__()\n        self.debug = debug\n        self.norm = nn.BatchNorm2d(64)\n\n    def construct(self, x):\n        x = self.norm(x)\n        if self.debug and ms.get_context(\"mode\") == ms.PYNATIVE_MODE:\n            # 动态打印张量形状与均值，辅助调试\n            print(f\"Debug: tensor shape={x.shape}, mean={ops.mean(x).asnumpy()}\")\n        return x\n\n# 2. 静态推理模块：用jit装饰器做局部编译优化\n@ms.jit(input_signature=(ms.Tensor(shape=[None, 64, 32, 32], dtype=ms.float32),))\ndef static_infer_block(x):\n    \"\"\"高频推理模块：卷积+残差连接，静态编译优化\"\"\"\n    conv1 = nn.Conv2d(64, 128, 3, padding=1)\n    conv2 = nn.Conv2d(128, 128, 3, padding=1)\n    res = conv1(x)\n    res = ops.relu(res)\n    res = conv2(res)\n    return res + x  # 残差连接\n\n# 3. 动静融合的完整模型\nclass HybridModel(nn.Cell):\n    def __init__(self):\n        super().__init__()\n        self.debug_module = DynamicDebugModule()\n        self.static_block = partial(static_infer_block)  # 封装静态模块\n        self.classifier = nn.Dense(128*32*32, 10)\n\n    def construct(self, x):\n        x = self.debug_module(x)  # 动态执行：调试\n        x = self.static_block(x)  # 静态执行：高性能推理\n        x = x.reshape(x.shape[0], -1)\n        x = self.classifier(x)\n        return x\n\n# 效果：动态模块保留调试能力，静态模块推理延迟降低50%；相比全静态图，调试效率提升3倍</code></pre><h2>2. 异构硬件算子重写：针对硬件架构的性能优化</h2><p>场景：MindSpore 默认算子在通用硬件上表现均衡，但在专用架构（如 ARM 的 NEON 指令集、Ascend 的 AI Core）上未充分发挥硬件算力 —— 例如 ARM 端的卷积算子，默认实现未利用向量并行计算，推理效率仅为硬件峰值的 30%。</p><p>MindSpore 技术实践：</p><p>基于mindspore.ops.Custom实现硬件感知的算子重写，针对不同硬件平台注册差异化的算子实现，同时通过PrimitiveWithInfer完成算子的形状推导，确保与 MindSpore 计算图兼容：</p><pre><code class=\"python\">from mindspore.ops import Custom, PrimitiveWithInfer\nfrom mindspore._c_expression import typing\n\n# 1. 定义硬件感知的卷积算子（以ARM NEON为例）\nclass ARMCustomConv2d(PrimitiveWithInfer):\n    @prim_attr_register\n    def __init__(self, in_channels, out_channels, kernel_size):\n        super().__init__(name=\"ARMCustomConv2d\")\n        self.in_channels = in_channels\n        self.out_channels = out_channels\n        self.kernel_size = kernel_size\n\n    def infer_shape(self, x_shape):\n        # 推导输出形状：same padding\n        h, w = x_shape[2], x_shape[3]\n        return (x_shape[0], self.out_channels, h, w)\n\n    def infer_dtype(self, x_dtype):\n        return x_dtype\n\n    def get_func(self):\n        # 绑定ARM NEON优化的卷积实现（C++编写，通过MindSpore C API调用）\n        def neon_conv2d(x, weight, bias):\n            from arm_neon_conv import neon_conv2d_impl  # 自定义NEON加速库\n            return neon_conv2d_impl(x.asnumpy(), weight.asnumpy(), bias.asnumpy())\n        return neon_conv2d\n\n# 2. 硬件算子注册与适配\ndef get_conv2d(in_channels, out_channels, kernel_size, device_target):\n    \"\"\"根据硬件平台返回最优算子\"\"\"\n    if device_target == \"ARM\":\n        return Custom(\n            ARMCustomConv2d(in_channels, out_channels, kernel_size),\n            out_shape=ARMCustomConv2d(in_channels, out_channels, kernel_size).infer_shape,\n            out_dtype=ARMCustomConv2d(in_channels, out_channels, kernel_size).infer_dtype\n        )\n    else:\n        # 其他平台使用默认卷积算子\n        return nn.Conv2d(in_channels, out_channels, kernel_size, padding=1)\n\n# 3. 模型集成硬件感知算子\nclass HardwareAwareModel(nn.Cell):\n    def __init__(self, device_target):\n        super().__init__()\n        self.conv = get_conv2d(3, 64, 3, device_target)\n        self.relu = nn.ReLU()\n\n    def construct(self, x):\n        x = self.conv(x)\n        x = self.relu(x)\n        return x\n\n# 效果：ARM平台卷积算子推理速度提升2.8倍，硬件算力利用率从30%提升至75%</code></pre><h2>3. 低代码跨平台部署：MindIR 导出 + Lite 推理的自动化流程</h2><p>场景：模型部署需经历 “训练→导出→量化→推理” 多步骤，不同平台的部署流程差异大，手动配置繁琐且易出错；同时端侧设备资源有限，需对模型做轻量化处理。</p><p>MindSpore 技术实践：</p><p>基于 MindSpore 的MindIR 统一模型格式，封装 “训练→导出→量化→部署” 的自动化脚本，同时集成后训练量化（PTQ）与算子融合优化，实现一键跨平台部署：</p><pre><code class=\"python\">import mindspore.lite as mslite\nfrom mindspore.compression import QuantizationAwareTraining\n\n# 1. 模型训练与轻量化（PTQ量化）\ndef train_and_quantize(model, train_dataset, device_target):\n    # 训练模型（省略训练循环）\n    loss_fn = nn.CrossEntropyLoss()\n    opt = nn.Adam(model.trainable_params(), 1e-3)\n    train_net = nn.TrainOneStepCell(model, opt, loss_fn)\n\n    # PTQ量化：降低模型体积与推理延迟\n    quant_config = QuantizationAwareTraining(quant_dtype=ms.int8)\n    quant_model = quant_config.quantize(model)\n    # 用校准数据集微调（100样本）\n    calib_dataset = train_dataset.take(100)\n    for x, _ in calib_dataset:\n        quant_model(x)\n    return quant_model\n\n# 2. 一键导出MindIR模型\ndef export_mindir(model, input_shape, export_path):\n    input_tensor = ms.Tensor(shape=input_shape, dtype=ms.float32)\n    ms.export(model, input_tensor, file_name=export_path, file_format=\"MINDIR\")\n\n# 3. 跨平台推理部署\ndef deploy_lite(model_path, device_target, input_data):\n    # 初始化Lite推理环境\n    context = mslite.Context()\n    if device_target == \"CPU\":\n        context.target = [\"cpu\"]\n        context.cpu.thread_num = 4\n    elif device_target == \"GPU\":\n        context.target = [\"gpu\"]\n    elif device_target == \"ARM\":\n        context.target = [\"cpu\"]\n        context.cpu.thread_num = 2  # 适配ARM端算力\n\n    # 加载模型并推理\n    model = mslite.Model(model_path, context=context)\n    inputs = [mslite.Tensor.from_numpy(input_data)]\n    outputs = model.predict(inputs)\n    return outputs[0].asnumpy()\n\n# 自动化部署流程调用\nif __name__ == \"__main__\":\n    device_target = \"ARM\"  # 可切换为CPU/GPU/Ascend\n    model = HardwareAwareModel(device_target)\n    # 训练量化\n    quant_model = train_and_quantize(model, train_dataset, device_target)\n    # 导出MindIR\n    export_mindir(quant_model, [1, 3, 224, 224], \"hardware_aware_model\")\n    # 端侧推理\n    input_data = np.random.randn(1, 3, 224, 224).astype(np.float32)\n    result = deploy_lite(\"hardware_aware_model.mindir\", device_target, input_data)</code></pre></body></html>",
+      "translated": false,
+      "originalLang": "mixed"
+    },
+    {
+      "id": "segmentfault-1774630414053-0",
+      "title": "1模型、框架、量产工作流：原力灵机的“具身原生”答卷",
+      "url": "https://segmentfault.com/a/1190000047604377",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:53:34.053Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "近日，多家机器人公司宣布成为 2026 年央视春晚合作伙伴，这种密集的集体登场，也成为产业加速寻求公众认知与市场突破的强烈信号。行业报告显示，我国具身智能产业规模正以超 50% 的增速跨越发展，整体已迈入全球第一梯队。在“十五五”规划等顶层设计推动下，产业正从技术探索迈向规模应用的关键阶段。在这一关...",
+      "summary": "近日，多家机器人公司宣布成为 2026 年央视春晚合作伙伴，这种密集的集体登场，也成为产业加速寻求公众认知与市场突破的强烈信号。行业报告显示，我国具身智能产业规模正以超 50% 的增速跨越发展，整体已迈入全球第一梯队。在“十五五”规划等顶层设计推动下，产业正从技术探索迈向规模应用的关键阶段。在这一关...",
+      "content": "<html><head></head><body><p>近日，多家机器人公司宣布成为 2026 年央视春晚合作伙伴，这种密集的集体登场，也成为产业加速寻求公众认知与市场突破的强烈信号。行业报告显示，我国具身智能产业规模正以超 50% 的增速跨越发展，整体已迈入全球第一梯队。在“十五五”规划等顶层设计推动下，产业正从技术探索迈向规模应用的关键阶段。</p><p>在这一关键节点，原力灵机举办了其首次技术开放日，并完整推出了全球首个具身原生大模型 DM0、具身原生开发框架 Dexbotic 2.0 以及具身应用的量产工作流 DFOL，分别从智能基座、开发效率与场景进化三个层面，为产业提供了新的落地范式。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT6I\" alt=\"\" title=\"\"></p><h3>应对泛化瓶颈，让智能“通用”</h3><p>具身智能目前面临的核心挑战，集中体现在数据与泛化能力上。许多在受控实验室环境中训练出来的模型，一旦部署于开放的真实场景或适配不同的硬件平台，其性能往往出现显著衰减。而这种泛化能力的缺失，将行业限制在了昂贵的定制化开发循环中。</p><p>我们观察主流技术路线发现，许多研究通常默认通过互联网图文数据训练获得的“认知”，足以指导物理世界的行动。因此，大量研究重点便转向了如何将这种已有“认知”能力，有效迁移并适配到实体机器人系统上。</p><p>然而，物理交互有其特殊性。真实环境中的摩擦力、重量感和空间关系等关键信息很难仅从二维图像中完全掌握。于是，“具身原生”这一路径被提出。原力灵机认为，具身智能从诞生之初就需立足真实世界，聚焦“复杂环境中精准完成人类任务”，这也是此次发布具身原生大模型 DM0 的底层设计逻辑。</p><p>这一设计逻辑，首先体现为向物理世界要数据的范式转变。原力灵机合伙人周而进介绍，DM0 本质上是一个从头训练的多模态大模型，它的数据采集方案遵循了“熵在哪里，数据就投向哪里”的原则，除了提供通用语义的互联网图文，它更关键地纳入了体现复杂时空决策的自动驾驶序列数据，以及来自多种机器人平台的真实交互数据。这种融合为构建模型关于空间、力学与因果的认知框架，实现稳定泛化的动作执行能力提供基础。</p><p><img width=\"723\" height=\"474\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnTZz\" alt=\"\" title=\"\" loading=\"lazy\"></p><p>具体实现上，DM0 模型采用的多任务与跨机型协同的训练方法进一步提升了强跨机型的泛化和迁移能力。<a href=\"https://link.segmentfault.com/?enc=m0FHijeHnxV6%2FCS1NbQVVg%3D%3D.j7Nir7yt9p2HZ040NepAUPxQBNpK9WwUSqR%2FdrLLyeeTO%2B34FUi%2B43vuWaCZrcQ5ZI%2Bmq3E%2FxnhWXG5Hbw186r1BkPW7gHeyiD9wdsNb%2FoFuak2ErfXxG1SFsoxIyQsy4AwyvnLpdLzUvTPfhAyrwCSUF%2FbQk%2FcDSZMrE9G9WDI%3D\" rel=\"nofollow\" target=\"_blank\">DM0 技术报告</a>显示，DM0 在预训练阶段就被置于一个多样环境中，同步学习抓取、导航、全身控制 3 类核心任务，并覆盖 UR、Franka、ARX、UMI、Aloha、R1-Lite、Realman、DOS-W1 等 8 种差异显著的机型。这种设计迫使模型剥离对特定硬件参数的机械记忆，转而学习通用逻辑与物理规律。</p><p>在这一设计路径下，DM0 模型在真机测试中获得了关键验证。DM0 在 RoboChallenge 平台的“Table 30”任务中取得了综合最高分，而其参数量仅为 2.4B，这意味着它的智能密度非常高。</p><p>此外，为了满足工业级精细操作，DM0 专门设计了 728×728 的高分辨率视觉输入，使其能在 720p的视频中捕捉细微的空间差异，显著提升精密装配等任务的定位可靠性。更具突破性的是，DM0 将机器人的“动作”从关节控制扩展为包含“拍照、扫码”等抽象指令的广义集合。这让机器人能够以连续、类人的作业逻辑，自主完成“抓取-调整-识别-扫码”的端到端流程。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT6L\" alt=\"\" title=\"\" loading=\"lazy\"></p><p>目前，DM0 2.4B 版本已全面开源，支持在消费级显卡上微调。周而进介绍道，此举意在降低开发与科研门槛，让更多研究者能够基于 DM0 做二次开发或训练，从而推动产业共同验证并丰富“具身原生”这一技术范式。这或将为行业突破当前规模化落地的关键瓶颈，提供一条可供协作与迭代的开放路径。</p><h3>破解效率困境，让研发“自由”</h3><p>DM0 模型为产业提供了一个更强的泛化起点，但要将这类前沿模型转化为现实生产力，还需克服工程落地的重重障碍。高度碎片化的开发环境是核心痛点，数据格式、仿真平台与硬件接口的标准不一，使得从算法研究到真机部署的链条冗长而低效，大量创新精力被消耗在重复的适配工作中。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT6M\" alt=\"\" title=\"\" loading=\"lazy\"></p><p>为了系统性地破解这一效率瓶颈，原力灵机将其开源框架 Dexbotic 升级至 2.0 版本。原力灵机合伙人汪天才阐述了此次重构的目的，“我们想通过这次重构进一步扩大 Dexbotic 在整个具身生态下的职能范围，让更多用户能够用它进行算法的开发，降低进行具身算法开发的门槛。” 其最核心的革新是采用了模块化架构，将机器人策略解耦为 V（Vision encoder）、L（LLM）、A(Action Expert)三个可自由组合的独立模块。开发者能通过像搭乐高一样，自由组合、快速验证新想法并适配不同硬件。更关键的突破是，这一设计统一了机器人长期以来相互割裂的操作与导航能力，推动其最终迈向全身协同控制的更高阶段。</p><p>框架的另一个特征是支撑多源异构数据的混合训练。这直接服务于如 DM0 这类“具身原生”模型的训练需求，能够无缝协调处理来自互联网、自动驾驶和机器人本体的不同性质数据，让模型在完整的统一流程中同步学习通用知识与专用技能。</p><p>为支撑这一复杂的多源训练范式并使其能够高效、可复现地转化为实际能力，Dexbotic 2.0 构建了一套从“数据—训练—评测—硬件”四个环节的标准化具身开发全流程。它定义了统一的数据规范以消除格式壁垒，集成了主流仿真评测工具以简化验证环节，并原生适配了多种机器人硬件平台，彻底将开发者从繁复的环境配置与适配工作中解放，提供了一条从算法原型直达真机验证的清晰路径。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT6N\" alt=\"\" title=\"\" loading=\"lazy\"></p><p>伴随此次升级，Dexbotic 2.0 的开源生态建设也取得了实质进展。其与 RLinf 达成战略合作，目前已初步完成环境层面对接，并计划通过仿真复现与真机演示共同验证这套协同系统在复杂物理场景中形成有效生产力的潜力。</p><p>对于此次合作，汪天才的期望远超工具层面的对接。他认为，大语言模型之所以能爆发，关键在于找到了“SFT 和 RLHF”这套让模型与人类价值对齐的方法论。而现在，具身智能正站在相似的历史节点前。“我们期望与 RLinf 的合作能够复现并建立起这一已被验证的范式，最终形成覆盖具身智能全开发流程的‘SFT+RLHF’生态。”</p><h3>填补进化缺口，让生产力“持续”</h3><p>在原力灵机 CEO 唐文斌看来，“所有的价值是可以被衡量和计算的，如果不能的话，那这个东西是不能长期存续的。”当智能模型与开发工具就绪，如何让机器人在千差万别的真实场景中持续创造可靠价值，成为检验技术的最终标尺。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT6N\" alt=\"\" title=\"\" loading=\"lazy\"></p><p>作为本次开放日的第三项重要发布，具身应用的量产工作流 DFOL（Distributed Field Online Learning）是原力灵机让具身智能从“展品”变为“产品”最具现实意义的一环。据介绍，DFOL 采用“硬件通用+模型智能”模式，构建了一套链接云端与现场的数据进化闭环。部署在产线或仓库中的机器人，能将作业过程中产生的训练片段（episode）与负样本块（negative chunk）实时反馈至云端。这些来自真实场景的数据经过处理，持续优化模型策略，并再次部署到所有机器人。这使得系统能够在实际运行中自主学习，应对物料差异、环境变化等不确定性，从而将固定程式转变为可持续进化的生产力。</p><p>值得关注的是，这一方案的有效运转，与 DM0 与 Dexbotic 2.0 两项技术基座的成熟度密切相关。DM0 模型所提供的强泛化能力，是系统能够快速理解新任务、获得可靠初始策略的智能前提；而 Dexbotic 2.0 框架及其标准化工具链，则为海量现场数据的高效回流、处理与迭代更新提供了工程化路径。三者共同构建了一个从“通用能力储备”到“高效开发部署”，最终实现“持续价值创造”的增强循环。</p><p>面对这种深度技术耦合可能带来的风险，DFOL 的设计逻辑本身便是应对之道。通过将现场运行数据实时反馈用于模型迭代，它将风险考量从依赖某一静态模块的“完美性”，转化为依赖整个系统“动态进化能力”的健康度。这意味着，对其商业落地的评估，将不再仅仅是评估一个固定版本模型的好坏，而是评估一套系统的学习与适应效率。</p><p>由此来看，此次相继发布的模型、框架与方案，是一条贯穿“能力构建-效率提升-价值闭环”的连贯路径。它们共同呈现了原力灵机的技术纵深，更展示了其对“具身智能规模化落地”的系统性思考。其“具身原生”的范式探索，不仅关乎企业的自身发展，也为整个产业如何打通从技术研发到规模商业化的路径，提供了一个值得深入观察的范例。</p><p>更多视频内容可见：<a href=\"https://link.segmentfault.com/?enc=TdFX3%2FMwr%2FRRSSeWtumKEg%3D%3D.vKJ3mWqDTimhZ%2F7CcjmKRQ3YcAwwnJfs0YjKgK43xhxKkvx2qk4ZBuoT4oG5jZ6iCiU7EPMsri6Kl6%2F9urb4ag%3D%3D\" rel=\"nofollow\" target=\"_blank\">https://mp.weixin.qq.com/s/d2r9u3tZImzXxrHzjBvDrw</a></p></body></html>",
+      "translated": false,
+      "originalLang": "chinese"
+    },
+    {
+      "id": "segmentfault-1774630416072-1",
+      "title": "2Atlassian DC 停服还涨价！留给中国企业的窗口期还有多久？",
+      "url": "https://segmentfault.com/a/1190000047592740",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:53:36.072Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "近日，Atlassian 官方宣布：自 2026 年 2 月 17 日起，其 Data Center（数据中心版）产品将迎来约 15% 的价格上调，覆盖 Jira、Confluence、Jira Service Management 等核心产品。值得注意的是，去年 Atlassian 已明确了 Da...",
+      "summary": "近日，Atlassian 官方宣布：自 2026 年 2 月 17 日起，其 Data Center（数据中心版）产品将迎来约 15% 的价格上调，覆盖 Jira、Confluence、Jira Service Management 等核心产品。值得注意的是，去年 Atlassian 已明确了 Da...",
+      "content": "<html><head></head><body><p>近日，Atlassian 官方宣布：自 2026 年 2 月 17 日起，其 Data Center（数据中心版）产品将迎来约 15% 的价格上调，覆盖 Jira、Confluence、Jira Service Management 等核心产品。</p><p><img width=\"723\" height=\"470\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnRbu\" alt=\"来源：Atlassian 官网\" title=\"来源：Atlassian 官网\"></p><p>值得注意的是，去年 Atlassian 已明确了 Data Center 的停售与最终停服规划。对于众多依赖 Atlassian&nbsp;Data Center&nbsp;进行项目管理的中国企业而言，继续留在 Data Center 不仅需负担更高的 IT 成本，更面临着断供风险。</p><p><a href=\"https://segmentfault.com/a/1190000047253394\" target=\"_blank\">Jira 官宣停售 Data Center ，中国企业又双叒要迁移了？！</a></p><h3><strong>窗口期加速收窄：高昂的价格之外，还有「滞后风险」</strong></h3><p>Atlassian&nbsp;Data Center&nbsp;在产品生命周期进入倒计时阶段依然上调价格，向市场释放了清晰信号：Data Center 版的维护成本与门槛将持续推高，留给中国企业平滑迁移的窗口期正迅速收窄。</p><p>对处于安全合规「深水区」的企业而言，必须站在业务连续性的高度，重新审视核心研发管理工具的长期自主性与安全策略。</p><p>如果此时不主动筹谋，未来可能面临以下三重严峻挑战：</p><p><strong>1.安全与合规挑战：难以逾越的「数据红线」</strong><br>Atlassian 本轮价格上调与其「云优先」的战略深度绑定。 Atlassian 在中国大陆没有本地服务器，选择 Cloud 版即意味着核心研发数据需存储于境外，对金融、政务、能源及高新制造等数据主权敏感的行业来说，无异于把数据安全暴露在不可控的风险之中。</p><p><strong>2.迁移工程挑战：确保业务迁移「平稳着陆」</strong><br>对于深度依赖 Jira&nbsp;Data Center&nbsp;的中大型企业，多年累积的项目数据、文档资产和复杂业务流程，不仅是核心资产，也构成了团队的工作惯性。在评估替代方案时，企业必须从多维度确保迁移的可行性：确保海量历史数据与字段配置能够实现高匹配度迁移确保拥有完备的迁移计划与可追溯的全程服务确保支持分批迁移与风险控制，保障业务在迁移过程中不断档</p><p><strong>3.IT 成本挑战：难以预测的「成本黑洞」</strong><br>自 2021 年起，Atlassian Cloud 版价格已连年持续上涨，这种频繁且单方面的价格变动，让企业的 IT 预算规划极为被动。若未来选择迁移上云，企业不仅需接受未来不可预测的持续涨价，还可能将额外承担员工培训、系统集成、插件开发等隐性成本。</p><h3>ONES：面向企业长期需求的主流国产替代方案</h3><p>在核心研发管理工具的不可控风险面前，寻找一个更加可靠的本土替代方案已不再是「备选项」，而是关乎企业研发数字资产安全的「必选项」。</p><p>ONES 作为国内领先的企业级研发管理平台，凭借功能对标、自主可控、安全合规、高性价比与本地化服务等核心优势，已成为众多央国企及行业头部企业替换 Jira 和 Confluence 的首选。积累 6 年迁移经验，ONES&nbsp;帮助超过百余家客户完成数据的平滑迁移，单个客户最大迁移数据体量超过 9.5 TB，正式迁移成功率达 100%。</p><p><img width=\"723\" height=\"704\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnRbO\" alt=\"\" title=\"\" loading=\"lazy\"></p><h3>专业可靠的迁移服务，确保企业资产平滑着陆</h3><p>ONES 提供行业领先的端到端迁移服务与工具，确保企业知识资产与业务流程的完整、平稳过渡。</p><ul><li><strong>全面的数据兼容性</strong>：实现对 Jira 的字段映射、任务类型、状态流转及权限配置的高匹配迁移；针对 Confluence 文档，实现结构与样式的最大化保留，确保团队原有的工作习惯与知识资产「零损耗」。</li><li><strong>全流程风险受控</strong>：借助 ONES 自助迁移工具，可实现中等规模数据的自动化搬迁；对于超大型实例，我们提供分批迁移与风险监控机制，并输出详尽的迁移报告，确保过程可追溯，业务不断档。</li></ul><p><img width=\"723\" height=\"434\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnRbU\" alt=\"\" title=\"\" loading=\"lazy\"></p><h3>坚定的本地化部署承诺，满足安全监管要求</h3><p>ONES 始终将企业的数据主权与安全合规置于首位，提供稳定、高可用的私有化部署方案。</p><ul><li><strong>自主可控的部署架构</strong>：我们为金融、政企等行业客户提供私有化环境下的高可用部署与数据加密方案，满足严苛的网络安全规范与数据主权要求。</li><li><strong>权威完备的安全背书</strong>：ONES 已通过 SOC2 Type II 安全审计，并持有等保三级、ISO 27001、ISO 27018 等多项国内外权威认证，从基础设施到应用层全方位构建安全防线。</li></ul><p><img width=\"723\" height=\"288\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnRbV\" alt=\"\" title=\"\" loading=\"lazy\"></p><h3>面向未来的生产力迭代，支持私有化部署的 AI 能力与开放生态</h3><p>除了在功能维度深度对标，ONES 致力于为企业打造支持私有化部署、自主可控的下一代智能研发平台。</p><ul><li><strong>私有化部署中运行完整 AI 能力</strong>：ONES Copilot 智能助手与即将上线的 ONES AI Agent，为用户打造专属智能引擎，深度融合业务流程，精准赋能项目决策，智能规划并执行任务，释放企业研发管理新动能与创新潜能。</li><li><strong>开放、灵活且安全的技术底座</strong>：ONES 提供更符合本土开发者习惯的插件市场与扩展能力。通过丰富的开放能力和插件生态， 企业能够打造真正贴合业务的研发管理系统，提升效率，推动创新和业务增长。</li></ul><p>若您正在寻求 Atlassian Data Center 的替代产品，欢迎联系 ONES 团队，获取详细的 Jira 和 Confluence 迁移方案、成功案例及个性化评估报告。</p></body></html>",
+      "translated": false,
+      "originalLang": "chinese"
+    },
+    {
+      "id": "segmentfault-1774630417953-2",
+      "title": "3鸿蒙人物志x朱博｜把“全栈+ AI”的能力，落到鸿蒙的每一个真实场景",
+      "url": "https://segmentfault.com/a/1190000047499426",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:53:37.953Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "此篇文章来源于 SegmentFault 思否鸿蒙专区·鸿蒙人物志专题采访，以下为正文：朱博的工程履历很典型。计算机硕士出身，在大厂做研发，一直没离开跨平台应用和智能设备这条线。后来他把精力集中在全栈开发、终端 AI 和 鸿蒙生态 三件事上。在旁人看来这是三个方向，他却认为这是一条连贯的路径——先用...",
+      "summary": "此篇文章来源于 SegmentFault 思否鸿蒙专区·鸿蒙人物志专题采访，以下为正文：朱博的工程履历很典型。计算机硕士出身，在大厂做研发，一直没离开跨平台应用和智能设备这条线。后来他把精力集中在全栈开发、终端 AI 和 鸿蒙生态 三件事上。在旁人看来这是三个方向，他却认为这是一条连贯的路径——先用...",
+      "content": "<html><head></head><body><blockquote>此篇文章来源于 SegmentFault 思否鸿蒙专区·鸿蒙人物志专题采访，以下为正文：</blockquote><p>朱博的工程履历很典型。计算机硕士出身，在大厂做研发，一直没离开跨平台应用和智能设备这条线。后来他把精力集中在<strong>全栈开发</strong>、<strong>终端 AI </strong>和 <strong>鸿蒙生态</strong> 三件事上。在旁人看来这是三个方向，他却认为这是一条连贯的路径——先用全栈能力把产品做完整，再用 AI 让体验更聪明，最后用鸿蒙让多设备真正协同起来。如今，他正通过一个又一个真实项目去验证它。</p><h2>协同是系统的基本能力</h2><p>学生时代，朱博十分注重理论积累与基础实践。这让他建立起对系统、网络和架构等底层概念的理解，也影响了他后来面对复杂技术问题时的思考方式。进入大厂后，他参与多个跨平台应用与智能设备研发项目，从单点模块开发逐步转向串联前后端、数据链路和工程发布流程，最终能独立交付完整的产品。</p><p>正是在这一过程中，他注意到一个长期存在的痛点，即大多数跨端方案可以让应用“跑起来”，却难以让多设备真正“协同起来”。</p><p>这个观察成为他关注鸿蒙的起点。在他看来，鸿蒙的设计从底层支持多设备间的资源共享与任务协同，<strong>“一次开发、多端部署”</strong> 的特性意味着开发者无需为每种设备组合单独适配，而是基于统一模型进行开发。这与他过去在工程实践中反复遇到的割裂体验截然不同。早期间他通过社区参与接触鸿蒙，包括跟进文档、复现 Demo、撰写文章并参与开发者讨论。随着实践增多，他逐渐意识到，鸿蒙与传统跨端方案的根本区别不在功能多少，而在于协同是否由系统原生支持。</p><p><strong>下图是朱博老师分享的 Demo， 应用“慢小圈”应用页面布局核心代码：</strong></p><pre><code>import navController from '@ohos.router'; \nclass PostClass { \n public userAlias: string; // 昵称 \n public postContent: string; // 贴文内容 \n public imageGallery: ResourceStr[]; // 图片列表 \n constructor(userAlias: string, postContent: string, imageGallery: ResourceStr[]) { \n this.userAlias = userAlias; \n this.postContent = postContent; \n this.imageGallery = imageGallery; \n } \n}\n // 计算行数 \n computeRowsTemplate(index) { \n let result:string = '1fr'; \n let length: number = this.postList[index].imageGallery.length || 0; \n if (length == 1) { \n result = '1fr'; \n } else if (length &gt;= 2 &amp;&amp; length &lt;= 6 &amp;&amp; length != 3) { \n result = '1fr 1fr'; \n } else { \n result = '1fr 1fr 1fr'; \n } \n return result; \n } \n // 计算列数 \n computeColumnsTemplate(index) { \n let result: string='1fr'; \n let length: number = this.postList[index].imageGallery.length || 0; \n if (length == 1) { \n result = '1fr';\n } else if (length == 2 || length == 4) { \n result = '1fr 1fr'; \n } else { \n result = '1fr 1fr 1fr'; \n } \n return result; \n } \n // 计算高度 \n computeGridHeight(index) { \n let result: number = 0; \n let length: number = this.postList[index].imageGallery.length || 0; \n if (length &lt;= 3) { \n result = 70; \n } else if (length &gt; 3 &amp;&amp; length &lt;= 6) { \n result = 145; \n } else { \n result = 220; \n } \n return result; \n } \n // 计算宽度 \n computeGridWidth(index) { \n let result: number = 0; \n let length: number = this.postList[index].imageGallery.length || 0; \n if (length == 1) { \n result = 70; \n } else if (length == 2 || length == 4) { \n result = 145; \n } else { \n result = 220; \n } \n return result; \n }</code></pre><p><img width=\"723\" height=\"337\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnsFo\" alt=\"image.png\" title=\"image.png\"></p><p>随着参与加深，他也感受到这个生态本身的活力：技术在快速迭代，场景在持续扩展，开发者的需求也在同步增长。他将这种活力归因于分布式架构优势、全场景生态覆盖以及国产生态带来的确定性机遇。他认为，生态仍在快速上升期，早期入局的开发者有机会一边积累能力，一边伴随生态成长，从而更早形成自己的影响力与方法论。</p><p><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnsT3\" alt=\"\" title=\"\" loading=\"lazy\"></p><h2>用真实项目验证</h2><p>在朱博看来，与其追逐概念，不如用真实项目打磨出可复用的方法论。他在实践中发现，多设备协同的关键从来不是“能控多少设备”，而是“能否做到无感融合”。在他开发的“智慧家园 ”App中，用户无需在多个入口间切换，即可完成跨品牌设备的统一管控与场景配置。</p><p>同时，App 支持用户自定义场景规则，例如开启“回家模式”后，灯光、空调和窗帘会自动按需启动。更进一步，借助 AI 学习能力，系统会观察用户的使用习惯，逐步让这些场景更贴合个人日常，而不是依赖固定的模板。他把这种体验称为“从功能堆叠到习惯理解”，只有当系统开始理解人，协同才会从“好玩”走向“好用”。</p><p>这一理念随后被他推向更严苛的环境。在工业设备监控系统中，他验证了同一套架构在高可靠、低延迟、强可观测性要求下的稳定性。两类实践共同表明，鸿蒙不仅能承载新体验的探索，也能支撑真实业务中多设备、多形态、多角色的复杂协同。</p><p>而真正将这一能力推向纵深的，是获得挑战杯省级金奖的“智能养老监护系统”。空巢老人的居家安全风险迫切需要有效监护，但传统设备往往各自为战、操作不便。为此，朱博基于鸿蒙打造了一个多设备协同的智能监护系统。</p><p><strong>下图是“智慧家园”鸿蒙APP首页核心代码块：</strong></p><pre><code>@State bartext: string[] = [' 首页 ',' 设备 ',' 关爱 ',' 我的 '] \n@State barlogo: string[] = ['bar01','bar02','bar03','bar04'] \n//Image('images/'+String(activity.type)+\".png\") \n@Builder TabBuilder(index: number) { \n Column() { \n // Image(index == this.mCurrentPage? $r('app.media.bar2'): $r('app.media. \nbar1')) \n Image('images/'+String(this.barlogo[index])+\".png\") \n .width('24vp') \n .height('24vp') \n .objectFit(ImageFit.Contain) \n Text(this.bartext[index]) \n .fontSize('10fp') \n .fontWeight(500) \n .margin({top: '4vp'}); \n }.justifyContent(FlexAlign.Center);\n\nTabs({barPosition: BarPosition.End, controller: this.mTabController}) { \n TabContent() { \n //... 选项卡 1 的内容 \n } \n .tabBar(this.TabBuilder(0)); \n TabContent() { \n //... 选项卡 2 的内容 \n } \n .tabBar(this.TabBuilder(1)); \n TabContent() { \n //... 选项卡 3 的内容 \n } \n .tabBar(this.TabBuilder(2)); \n //TabContent4 同样方式创建 \n}</code></pre><p><img width=\"723\" height=\"465\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnsUl\" alt=\"image.png\" title=\"image.png\" loading=\"lazy\"></p><p><strong>该方案整合了智能手环、烟雾传感器和门窗设备，构建起实时协同的网络，让监护从单点响应升级为多设备联动的整体感知。</strong> 在此基础上，系统通过分析用户的活动状态与生理数据，实现了对跌倒、火灾或燃气泄漏等风险的主动预判，并能够及时向家属推送预警。与此同时，界面交互专为老年人设计，操作极简，同时支持子女远程查看与管控，在易用性与实用性之间取得平衡。</p><p>随着实践深入，朱博越来越清晰地意识到，做出一个能跑的项目不难，难的是让别人也能轻松复现。他观察到，开发者最需要的是可复用、可上手、能直接解决问题的实战内容。于是他着手撰写 <strong>《ArkTS 鸿蒙应用开发入门到实战》</strong>， <strong>采用“基础—核心—项目—优化”的渐进框架，把分布式协同等复杂能力拆解为可复现的步骤。</strong> 在他看来，国产生态的真正机会，不在于替代，而在于能否成为多终端协同场景的可靠底座。而他要做的，就是不断用真实项目和清晰文档，让更多后来者能够复现并在此基础上持续演进。</p><p><img width=\"723\" height=\"305\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnsUp\" alt=\"image.png\" title=\"image.png\" loading=\"lazy\"></p><h2>展望鸿蒙未来：AI 赋能与领航者计划</h2><p>展望未来三到五年，朱博认为鸿蒙生态的增长将主要来自两个方向。一是全场景设备协同在智能家居、工业互联网和智能汽车等领域的深入落地，这会催生大量需要跨终端协作的新应用。二是国央企在数字化转型过程中对国产操作系统的明确需求，为鸿蒙提供了稳定的产业入口。</p><p>在他看来，智能技术与鸿蒙的结合将带来两方面变化。一方面，终端智能会升级为更精准的场景化服务；另一方面，<strong>“AI 能力 + 分布式架构”</strong> 的研发范式正在降低复杂应用的开发门槛。当底层能力被有效封装，开发者就能把更多精力放在业务逻辑和用户体验的打磨上。</p><p>这些变化正在吸引更多具备实战能力的开发者加入鸿蒙生态的共建之中。他们不仅需要理解技术原理，更要能在真实约束下完成端到端交付。鸿蒙领航者计划正是在这一背景下推出的，通过系统学习、项目实战和同行交流，为开发者的能力成长提供支持。</p><p>朱博选择加入其中。“报名鸿蒙领航者，努力成为鸿蒙极客不仅可以获得更多学习的机会，也是帮助开发者从实践中获取真正价值的途径。”他相信，一个健康的生态不能只靠少数人的突破，还应该有人把知识写成教程，有人把需求变成产品，有人把实践总结为方法论，而领航者计划的价值，正在于让这三类行动都能被看见、被支持、被延续。</p><p>作为早期实践者，朱博的行动本身已成为一种示范。他始终认为，与其讨论可能性，不如交付可运行、可复现、可演进的真实项目。在他看来，这正是鸿蒙走向成熟最可靠的路径。</p><p>报名链接 👉：<a href=\"https://segmentfault.com/e/1160000047290166\" target=\"_blank\">鸿蒙领航者招募｜加入领航者阵营，共享共建鸿蒙新世界</a></p></body></html>",
+      "translated": false,
+      "originalLang": "chinese"
+    },
+    {
+      "id": "techcrunch-1774630435174-0",
+      "title": "Iranian hackers claim breach of FBI director Kash Patel’s personal email account",
+      "url": "https://techcrunch.com/2026/03/27/iranian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account/",
+      "source": "TechCrunch",
+      "icon": "🌐",
+      "category": "tech",
+      "time": "2026-03-27T16:53:55.174Z",
+      "tags": [
+        "tech"
+      ],
+      "excerpt": "A hacking group backed by the Iranian government dubbed “Handala” said on Friday that it has breached the personal email account of FBI director Kash ...",
+      "summary": "A hacking group backed by the Iranian government dubbed “Handala” said on Friday that it has breached the personal email account of FBI director Kash ...",
+      "content": "<html><head></head><body><div class=\"wp-block-columns article is-layout-flex wp-container-core-columns-is-layout-28f84493 wp-block-columns-is-layout-flex\">\n\t\t\n\t\t<div class=\"wp-block-column is-layout-flow wp-block-column-is-layout-flow\">\n\t\t\t<div class=\"entry-content wp-block-post-content is-layout-constrained wp-block-post-content-is-layout-constrained\">\n<p id=\"speakable-summary\" class=\"wp-block-paragraph\">A hacking group backed by the Iranian government dubbed “Handala” said on Friday that it has breached the personal email account of FBI director Kash Patel.&nbsp;</p>\n\n<p class=\"wp-block-paragraph\">In a post on its website, Handala included several pictures of a visibly younger Patel, as well as a link to a cache of files that appear to come from Patel’s personal Gmail account.&nbsp;</p>\n\n<div class=\"ad-unit ad-unit--mobile ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot has-background has-gray-100-background-color\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-mw-mid-center\" data-unitcode=\"us_tc_ros_mw_mid_center\" data-test=\"us_tc_ros_mw_mid_center\">\n\t</div>\n</div>\n\n\n<div class=\"ad-unit ad-unit--desktop ad-unit--native wp-block-tc-ads-ad-slot\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-native-midarticle\" data-unitcode=\"us_tc_ros_dt_native_midarticle\" data-test=\"us_tc_ros_dt_native_midarticle\">\n\t</div>\n</div>\n\n\n<p class=\"wp-block-paragraph\">TechCrunch confirmed that at least some of the emails leaked by Handala were from Patel’s alleged Gmail account by verifying information contained within the message headers. These message headers contain information from the sender that helps email delivery systems confirm that an email is genuine and not a spoof.</p>\n\n<p class=\"wp-block-paragraph\">We used a tool to verify several emails in the leaked cache of files that were sent by Patel from his Gmail account. These emails contained cryptographic signatures that matched the messages, which strongly suggests that the emails we checked are authentic. In some cases, Patel appears to have sent emails from his former Justice Department email address in 2014 to his Gmail account. TechCrunch found that the emails sent from Patel’s DOJ account also appeared to be authentic.</p>\n\n<p class=\"wp-block-paragraph\">The files in the leaked cache appear to date up to about 2019.</p>\n\n<p class=\"wp-block-paragraph\">The FBI and Justice Department did not immediately respond to a request for comment.</p>\n\n<p class=\"wp-block-paragraph\">Reuters, <a href=\"https://www.reuters.com/world/us/iran-linked-hackers-claim-breach-of-fbi-directors-personal-email-doj-official-2026-03-27/?utm_source=braze\" target=\"_blank\" rel=\"noreferrer noopener nofollow\">which first reported</a> the email leaks, said a Justice Department official confirmed the breach.&nbsp;</p>\n<p class=\"wp-block-shortcode\">\t\t</p><div class=\"article-block block--callout block--right has-green-500-background-color\">\n\t\t\t<h4 class=\"block--callout__title\">Contact Us</h4>\n\t\t\tDo you have more information about this alleged Kash Patel breach? From a non-work device, you can contact Lorenzo Franceschi-Bicchierai securely on Signal at +1 917 257 1382, or via Telegram, Keybase and Wire @lorenzofb, or <a href=\"mailto:lorenzo@techcrunch.com/\">by email</a><a href=\"mailto:lorenzo@techcrunch.com/\">.</a> \t\t</div>\n\t\t<p></p>\n\n<p class=\"wp-block-paragraph\">TechCrunch sent messages seeking confirmation to Patel’s Gmail email address revealed by the hackers, as well as a text message to a cellphone number contained in a resume allegedly belonging to Patel. We did not immediately hear back.</p>\n\n<p class=\"wp-block-paragraph\">Since the U.S.-Israeli war against Iran started in February, Iran-linked Handala has ramped up its hacks, most notably <a href=\"https://techcrunch.com/2026/03/11/stryker-hack-pro-iran-hacktivist-group-handala-says-it-is-behind-attack/\">claiming responsibility for a destructive attack</a> against medical tech giant Stryker that <a href=\"https://techcrunch.com/2026/03/19/cisa-urges-companies-to-secure-microsoft-intune-systems-after-hackers-mass-wipe-stryker-devices/\">wiped tens of thousands of employee devices</a>. The hackers have also published the personal details of several people who are allegedly part of the Israeli Defense Forces and local defense contractors.</p>\n\n<p class=\"wp-block-paragraph\">Following the Stryker hack, <a href=\"https://techcrunch.com/2026/03/19/fbi-seizes-pro-iranian-hacking-groups-websites-after-destructive-stryker-hack/\">the FBI seized a handful of Handala websites</a>, which quickly came back online on new domains. U.S. prosecutors have <a href=\"https://techcrunch.com/2026/03/20/u-s-accuses-irans-government-of-operating-hacktivist-group-that-hacked-stryker/\">formally accused</a> the Iranian ministry of intelligence and security (MOIS) of operating the Handala group.&nbsp;</p>\n\n<div class=\"ad-unit ad-unit--mobile ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot has-background has-gray-100-background-color\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-mw-mid-center\" data-unitcode=\"us_tc_ros_mw_mid_center\" data-test=\"us_tc_ros_mw_mid_center\">\n\t</div>\n</div>\n\n\n<div class=\"ad-unit ad-unit--desktop ad-unit--native wp-block-tc-ads-ad-slot\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-native-midarticle\" data-unitcode=\"us_tc_ros_dt_native_midarticle\" data-test=\"us_tc_ros_dt_native_midarticle\">\n\t</div>\n</div>\n\n\n<p class=\"wp-block-paragraph\">The hackers did not respond to TechCrunch’s request for comment sent to a chat account that the hackers publicize on their website, as well as an email address owned by the group that was published by the Justice Department.</p>\n\n<p class=\"wp-block-paragraph\"><em>Corrected the fourth paragraph to note that the emails were sent from Patel’s DOJ email address, and not his FBI email address. <a href=\"https://techcrunch.com/author/zack-whittaker/\">ZW</a></em>.</p>\n</div>\n\n\t\t\t\n\n\t\t\t<div class=\"wp-block-tc23-post-relevant-terms\">\n\t<p class=\"wp-block-paragraph\">Topics</p>\n\t<div class=\"tc23-post-relevant-terms__terms\">\n\t\t<a href=\"https://techcrunch.com/tag/cybersecurity/\" rel=\"tag\">cybersecurity</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/fbi/\" rel=\"tag\">FBI</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/category/government-policy/\" rel=\"tag\">Government &amp; Policy</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/hackers/\" rel=\"tag\">hackers</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/hacktivists/\" rel=\"tag\">hacktivists</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/handala/\" rel=\"tag\">Handala</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/iran/\" rel=\"tag\">iran</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/iran-war/\" rel=\"tag\">Iran War</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/tag/kash-patel/\" rel=\"tag\">Kash Patel</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/category/security/\" rel=\"tag\">Security</a><span class=\"tc23-post-relevant-terms__separator\">, </span><a href=\"https://techcrunch.com/region/north-america/united-states/\" rel=\"tag\">United States</a>\t</div>\n</div>\n\n\n\t\t\t\n\t\t\t<div style=\"height:1px\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>\n\t\t\t\n\n\t\t\t\n<div class=\"ad-unit ad-unit--desktop ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-mid-center\" data-unitcode=\"us_tc_ros_dt_mid_center\" data-test=\"us_tc_ros_dt_mid_center\">\n\t</div>\n</div>\n\n\n\n\t\t\t\n\t\t\t<div style=\"height:1px\" aria-hidden=\"true\" class=\"wp-block-spacer\"></div>\n\t\t\t\n\n\t\t\t\n<div class=\"is-horizontal wp-block-techcrunch-social-share\">\n\t\t<div class=\"wp-block-techcrunch-social-share__wrapper\">\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Share on Facebook\" href=\"https://www.facebook.com/sharer.php?u=https%3A%2F%2Ftechcrunch.com%2F2026%2F03%2F27%2Firanian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account%2F\" target=\"_blank\" rel=\"noopener\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"facebook\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;facebook&quot;}\" style=\"--position: 1;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 16 16\"><path fill=\"var(--c-svg, currentColor)\" fill-rule=\"evenodd\" d=\"M5.974 14a.5.5 0 0 0 .5.5h2.26a.5.5 0 0 0 .5-.5V9.981h1.307a.5.5 0 0 0 .49-.402l.452-2.26a.5.5 0 0 0-.49-.597h-1.76v-1.26h1.76a.5.5 0 0 0 .5-.5V2.704a.5.5 0 0 0-.5-.5H8.357a2.39 2.39 0 0 0-2.383 2.383v2.136H4.666a.5.5 0 0 0-.5.5v2.26a.5.5 0 0 0 .5.5h1.308zm1-.5V9.481a.5.5 0 0 0-.5-.5H5.166v-1.26h1.308a.5.5 0 0 0 .5-.5V4.587c0-.76.623-1.383 1.383-1.383h2.136v1.26h-1.76a.5.5 0 0 0-.5.5v2.259a.5.5 0 0 0 .5.5h1.65l-.252 1.26H8.733a.5.5 0 0 0-.5.5V13.5z\" clip-rule=\"evenodd\"></path></svg>\t\t</a>\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Share on X\" href=\"https://twitter.com/intent/tweet?url=https%3A%2F%2Ftechcrunch.com%2F2026%2F03%2F27%2Firanian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account%2F&amp;text=Iranian+hackers+claim+breach+of+FBI+director+Kash+Patel%E2%80%99s+personal+email+account&amp;via=techcrunch\" target=\"_blank\" rel=\"noopener\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"twitter\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;twitter&quot;}\" style=\"--position: 2;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"var(--c-svg, currentColor)\" fill-rule=\"evenodd\" d=\"M19.414 4.188a.68.68 0 0 1 .038.99l-5.775 5.965 6.172 7.73a.68.68 0 0 1 .076.736.73.73 0 0 1-.654.391h-3.885a.74.74 0 0 1-.578-.274l-4.266-5.343-5.22 5.394a.75.75 0 0 1-1.03.035.68.68 0 0 1-.037-.99l5.387-5.565-6.491-8.13a.68.68 0 0 1-.076-.736A.73.73 0 0 1 3.73 4h3.885a.74.74 0 0 1 .578.274l4.586 5.743 5.607-5.794a.75.75 0 0 1 1.03-.035Zm-8.185 8.756a.7.7 0 0 0-.112-.14L5.207 5.4h2.048l10.539 13.198h-2.049l-4.516-5.655Z\" clip-rule=\"evenodd\"></path></svg>\t\t</a>\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Share on LinkedIn\" href=\"https://www.linkedin.com/shareArticle?url=https%3A%2F%2Ftechcrunch.com%2F2026%2F03%2F27%2Firanian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account%2F&amp;title=Iranian+hackers+claim+breach+of+FBI+director+Kash+Patel%E2%80%99s+personal+email+account&amp;summary=Handala%2C+a+pro-Iranian+hacking+group+allegedly+working+for+Iran%E2%80%99s+government%2C+published+emails+it+said+were+taken+from+the+Gmail+account+of+FBI+director+Kash+Patel.+&amp;mini=1&amp;source=TechCrunch\" target=\"_blank\" rel=\"noopener\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"linkedin\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;linkedin&quot;}\" style=\"--position: 3;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"var(--c-svg, currentColor)\" d=\"M20 20v-6.371a3.92 3.92 0 0 0-3.919-3.919c-1.022 0-2.212.625-2.789 1.563V9.938H9.938V20h3.354v-5.926c0-.926.746-1.683 1.671-1.683a1.683 1.683 0 0 1 1.683 1.683V20zM6.032 8.051a2.02 2.02 0 0 0 2.02-2.02A2.026 2.026 0 0 0 6.031 4 2.03 2.03 0 0 0 4 6.032c0 1.118.914 2.02 2.032 2.02ZM7.702 20V9.938h-3.33V20z\"></path></svg>\t\t</a>\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Share on Reddit\" href=\"https://www.reddit.com/submit?url=https%3A%2F%2Ftechcrunch.com%2F2026%2F03%2F27%2Firanian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account%2F&amp;title=Iranian+hackers+claim+breach+of+FBI+director+Kash+Patel%E2%80%99s+personal+email+account\" target=\"_blank\" rel=\"noopener\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"reddit\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;reddit&quot;}\" style=\"--position: 4;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 16 16\"><path stroke=\"var(--c-svg, currentColor)\" stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"M10.238 10.667c-.541.411-1.343.672-2.238.672s-1.696-.26-2.238-.672M8 5.112c1.722 0 3.268.521 4.326 1.349a1.333 1.333 0 1 1 1.406 2.146q.046.247.046.505c0 2.209-2.587 4-5.778 4s-5.778-1.791-5.778-4q0-.257.046-.507a1.333 1.333 0 1 1 1.406-2.144C4.732 5.633 6.278 5.11 8 5.11Zm0 0L9.334 2l2.68.735-.014.154m0 0a.889.889 0 1 0 1.778 0 .889.889 0 0 0-1.778 0M6.667 8.223a.889.889 0 1 1-1.778 0 .889.889 0 0 1 1.778 0m4.444 0a.889.889 0 1 1-1.778 0 .889.889 0 0 1 1.778 0\"></path></svg>\t\t</a>\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Share over Email\" href=\"mailto:?subject=Iranian+hackers+claim+breach+of+FBI+director+Kash+Patel%E2%80%99s+personal+email+account&amp;body=Article%3A+https%3A%2F%2Ftechcrunch.com%2F2026%2F03%2F27%2Firanian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account%2F\" target=\"_blank\" rel=\"noopener\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"email\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;email&quot;}\" style=\"--position: 5;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 16 16\"><path fill=\"var(--c-svg, currentColor)\" d=\"M14 3H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1m-1.1 1L8 7.39 3.1 4zM2 12V4.455L7.715 8.41a.5.5 0 0 0 .57 0L14 4.455V12z\"></path></svg>\t\t</a>\n\t\t<a class=\"wp-block-techcrunch-social-share__link\" aria-label=\"Copy Share Link\" href=\"https://techcrunch.com/2026/03/27/iranian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account/\" data-ga-event-category=\"social share right rail\" data-ga-event-action=\"click\" data-ga-event-label=\"copy\" data-datalayer=\"{&quot;event&quot;: &quot;social_share&quot;,&quot;socialNetwork&quot;: &quot;copy&quot;}\" data-copy-text=\"https://techcrunch.com/2026/03/27/iranian-hackers-claim-breach-of-fbi-director-kash-patels-personal-email-account/\" style=\"--position: 6;\">\n\t\t\t<svg aria-hidden=\"true\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 16 16\"><path fill=\"var(--c-svg, currentColor)\" d=\"M14.511 3.55a2.8 2.8 0 0 0-.908-.654 2.63 2.63 0 0 0-2.145 0c-.34.152-.648.374-.908.653l.662.71c.173-.186.38-.334.606-.434a1.76 1.76 0 0 1 1.43 0c.227.1.433.248.606.434.174.186.311.407.405.65a2.13 2.13 0 0 1 0 1.534 2 2 0 0 1-.405.65l-3.728 4c-.35.375-.824.587-1.32.587-.494 0-.97-.21-1.32-.585a2.08 2.08 0 0 1-.548-1.416c0-.53.196-1.04.546-1.416l.657-.71-.657-.71-.662.71c-.26.279-.467.61-.608.974a3.2 3.2 0 0 0 0 2.3c.14.365.348.697.608.975a2.7 2.7 0 0 0 3.058.639c.341-.151.651-.373.912-.654l3.728-3.999a3.11 3.11 0 0 0 .813-2.121 3.1 3.1 0 0 0-.822-2.118Z\"></path><path fill=\"var(--c-svg, currentColor)\" d=\"M2.166 12.408a2 2 0 0 1-.406-.651 2.13 2.13 0 0 1 0-1.537c.094-.244.232-.465.406-.651L5.89 5.563a1.9 1.9 0 0 1 .606-.436 1.75 1.75 0 0 1 1.43 0c.226.101.432.25.605.436.173.188.309.41.4.656.091.245.135.507.13.771a2.1 2.1 0 0 1-.139.772 2 2 0 0 1-.405.655L7.53 9.494l.66.71.988-1.06c.526-.566.82-1.332.82-2.131 0-.8-.294-1.566-.82-2.13A2.7 2.7 0 0 0 7.198 4c-.744 0-1.456.317-1.982.882L1.491 8.888a3 3 0 0 0-.61.977 3.2 3.2 0 0 0 0 2.307c.141.365.348.697.61.977a2.7 2.7 0 0 0 1.983.85 2.73 2.73 0 0 0 1.994-.88l-.662-.711a1.9 1.9 0 0 1-.605.436 1.75 1.75 0 0 1-1.43 0 1.9 1.9 0 0 1-.605-.436\"></path></svg>\t\t</a>\n\t</div>\n</div>\n\n\n\t\t\t\n<div class=\"wp-block-techcrunch-post-authors\">\n\t\t\t\n<div class=\"is-style-post-authors wp-block-tc23-author-card\">\n\t\n\t\n\t<div class=\"wp-block-group wp-block-tc23-author-card__user-media is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\n<div class=\"wp-block-tc23-author-card-image\">\n\t<img src=\"https://techcrunch.com/wp-content/uploads/2025/07/Lorenzo-headshot-2023-cropped.jpeg?w=150\" alt=\"Lorenzo Franceschi-Bicchierai\" class=\"wp-block-tc_author-card__image\" loading=\"lazy\">\n</div>\n\n\n\t\t\n\t\t<div class=\"wp-block-group wp-block-tc23-author-card__user-info is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\t\n<div class=\"wp-block-tc23-author-card-name\">\n\t\t\tLorenzo Franceschi-Bicchierai\t</div>\n\n\n\t\t\t\n\t\t\t<div class=\"wp-block-group wp-block-tc23-author-card__user-meta is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\t\t\n<div class=\"wp-block-tc23-author-card-title\">\n\t<p>\n\t\t<span class=\"wp-block-tc23-author-card-title__title\">Senior Reporter, Cybersecurity</span>\n\t\t\t</p>\n</div>\n\n\t\t\t\t\n<div class=\"wp-block-tc23-author-card-social\">\n\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--twitter\" target=\"_blank\" rel=\"noopener\" aria-label=\"Lorenzo Franceschi-Bicchierai on Twitter\" href=\"https://twitter.com/lorenzofb\"></a>\n\t\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--bluesky\" target=\"_blank\" rel=\"noopener\" aria-label=\"Lorenzo Franceschi-Bicchierai on Bluesky\" href=\"https://bsky.app/profile/lorenzofb.bsky.social\"></a>\n\t\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--mastodon\" target=\"_blank\" rel=\"noopener\" aria-label=\"Lorenzo Franceschi-Bicchierai on Mastodon\" href=\"https://infosec.exchange/@lorenzofb\"></a>\n\t</div>\n\n\t\t\t</div>\n\t\t\t\n\t\t</div>\n\t\t\n\t</div>\n\t\n\n\t\n<div class=\"wp-block-tc23-author-card-bio\">\n\t<div>\n\t\t<p>Lorenzo Franceschi-Bicchierai is a Senior Writer at TechCrunch, where he covers hacking, cybersecurity, surveillance, and privacy. </p>\n\n<p>You can contact or verify outreach from Lorenzo by emailing <a href=\"mailto:lorenzo@techcrunch.com\">lorenzo@techcrunch.com</a>, via encrypted message at +1 917 257 1382 on Signal, and @lorenzofb on Keybase/Telegram.</p>\t</div>\n</div>\n\n\n\t\n\t<div class=\"wp-block-button is-style-link\">\n\t\t<a data-ctatext=\"View Bio\" data-destinationlink=\"https://techcrunch.com/author/lorenzo-franceschi-bicchierai/\" data-event=\"button\" class=\"wp-block-button__link wp-element-button has-inline-icon\" href=\"https://techcrunch.com/author/lorenzo-franceschi-bicchierai/\">View Bio <svg class=\"uikit-icon\" style=\"width: 1em;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"var(--c-svg, currentColor)\" d=\"M16.5 12 9 19.5l-1.05-1.05L14.4 12 7.95 5.55 9 4.5z\"></path></svg></a>\n\t</div>\n\t\n</div>\n\t\t\t\n<div class=\"is-style-post-authors wp-block-tc23-author-card\">\n\t\n\t\n\t<div class=\"wp-block-group wp-block-tc23-author-card__user-media is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\n<div class=\"wp-block-tc23-author-card-image\">\n\t<img src=\"https://techcrunch.com/wp-content/uploads/2024/10/whittaker_headshot_disrupt2024.jpg?w=150\" alt=\"Zack Whittaker\" class=\"wp-block-tc_author-card__image\" loading=\"lazy\">\n</div>\n\n\n\t\t\n\t\t<div class=\"wp-block-group wp-block-tc23-author-card__user-info is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\t\n<div class=\"wp-block-tc23-author-card-name\">\n\t\t\tZack Whittaker\t</div>\n\n\n\t\t\t\n\t\t\t<div class=\"wp-block-group wp-block-tc23-author-card__user-meta is-layout-flow wp-block-group-is-layout-flow\">\n\t\t\t\t\n<div class=\"wp-block-tc23-author-card-title\">\n\t<p>\n\t\t<span class=\"wp-block-tc23-author-card-title__title\">Security Editor</span>\n\t\t\t</p>\n</div>\n\n\t\t\t\t\n<div class=\"wp-block-tc23-author-card-social\">\n\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--bluesky\" target=\"_blank\" rel=\"noopener\" aria-label=\"Zack Whittaker on Bluesky\" href=\"https://bsky.app/profile/zackwhittaker.com\"></a>\n\t\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--mastodon\" target=\"_blank\" rel=\"noopener\" aria-label=\"Zack Whittaker on Mastodon\" href=\"https://mastodon.social/@zackwhittaker\"></a>\n\t\t\t\t\t\t<a class=\"wp-block-tc23-author-card-social__link wp-block-tc23-author-card-social--homepage\" target=\"_blank\" rel=\"noopener\" aria-label=\"Zack Whittaker's site\" href=\"https://techcrunch.com/author/zack-whittaker/\"></a>\n\t</div>\n\n\t\t\t</div>\n\t\t\t\n\t\t</div>\n\t\t\n\t</div>\n\t\n\n\t\n<div class=\"wp-block-tc23-author-card-bio\">\n\t<div>\n\t\t<p>Zack Whittaker is the security editor at TechCrunch. He also authors the weekly cybersecurity newsletter, <a href=\"https://this.weekinsecurity.com/\">this week in security</a>. </p>\n\n<p>He can be reached via encrypted message at zackwhittaker.1337 on Signal. You can also contact him by email, or to verify outreach, at <a href=\"mailto:zack.whittaker@techcrunch.com\">zack.whittaker@techcrunch.com</a>. </p>\t</div>\n</div>\n\n\n\t\n\t<div class=\"wp-block-button is-style-link\">\n\t\t<a data-ctatext=\"View Bio\" data-destinationlink=\"https://techcrunch.com/author/zack-whittaker/\" data-event=\"button\" class=\"wp-block-button__link wp-element-button has-inline-icon\" href=\"https://techcrunch.com/author/zack-whittaker/\">View Bio <svg class=\"uikit-icon\" style=\"width: 1em;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"var(--c-svg, currentColor)\" d=\"M16.5 12 9 19.5l-1.05-1.05L14.4 12 7.95 5.55 9 4.5z\"></path></svg></a>\n\t</div>\n\t\n</div>\n\t</div>\n\n\n\t\t</div>\n\t\t\n\n\t\t\n\t\t<div class=\"wp-block-column article-sidebar is-layout-flow wp-block-column-is-layout-flow\" style=\"flex-basis: 316px\">\n\t\t\t\n\t\t\t<div class=\"wp-block-group is-vertical is-content-justification-center is-layout-flex wp-container-core-group-is-layout-8ca27fd8 wp-block-group-is-layout-flex\" style=\"padding-top:0;padding-bottom:0;padding-left:0;padding-right:0\">\n\t\t\t\t\n<div class=\"ad-unit ad-unit--mobile ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot has-background has-gray-100-background-color\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-mw-mid-center\" data-unitcode=\"us_tc_ros_mw_mid_center\" data-test=\"us_tc_ros_mw_mid_center\">\n\t</div>\n</div>\n\n\n\t\t\t</div>\n\t\t\t\n\t\t\t<div class=\"wp-block-template-part wp-block-template-part--sidebar-variation-1-articles\">\n<div class=\"wp-block-group sidebar-variation-1 is-vertical is-content-justification-center is-layout-flex wp-container-core-group-is-layout-ce155fab wp-block-group-is-layout-flex\">\n<div class=\"wp-block-group is-layout-flow wp-block-group-is-layout-flow\">\n<div class=\"ad-unit ad-unit--desktop ad-unit--top-right ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot has-background has-gray-100-background-color\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-top-right\" data-unitcode=\"us_tc_ros_dt_top_right\" data-test=\"us_tc_ros_dt_top_right\">\n\t</div>\n</div>\n\n</div>\n\n\n<div class=\"wp-block-techcrunch-event-cta wp-block-block\">\n\t<div class=\"rightrail-promo\">\n\t\t\t\t\t<img decoding=\"async\" class=\"rightrail-promo__logo\" src=\"https://techcrunch.com/wp-content/uploads/2026/03/StrictlyVC-San-Francisco-2026-no-date.png\" width=\"99\" alt=\"Event Logo\">\n\t\t\t\t<div class=\"rightrail-promo__date-location\">\n\t\t\t\t\t\t\t<div class=\"rightrail-promo__date\">April 30</div>\n\t\t\t\t\t\t\t\t\t\t<div class=\"rightrail-promo__location\">San Francisco, CA</div>\n\t\t\t\t\t</div>\n\t\t\t\t\t<p class=\"rightrail-promo__description\"><br>StrictlyVC kicks off the year in SF. Get in the room for unfiltered fireside chats with industry leaders, insider VC insights, and high-value connections that actually move the needle. <strong>Tickets are limited.</strong></p>\n\t\t\t\t\n\n<div class=\"wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex\">\n<div class=\"wp-block-button\"><a data-ctatext=\"REGISTER NOW\" data-destinationlink=\"https://techcrunch.com/events/strictlyvc-san-francisco-2026/?utm_source=tc&amp;utm_medium=ad&amp;utm_campaign=svcsf2026&amp;utm_content=ticketsales&amp;promo=rightrail&amp;display=\" data-event=\"button\" class=\"wp-block-button__link has-body-3-font-size has-custom-font-size wp-element-button has-inline-icon\" href=\"https://techcrunch.com/events/strictlyvc-san-francisco-2026/?utm_source=tc&amp;utm_medium=ad&amp;utm_campaign=svcsf2026&amp;utm_content=ticketsales&amp;promo=rightrail&amp;display=\" style=\"padding-top:var(--wp--preset--spacing--spacing-12);padding-bottom:var(--wp--preset--spacing--spacing-12)\" target=\"_blank\" rel=\"noreferrer noopener\"><strong>REGISTER NOW<svg class=\"uikit-icon\" style=\"width: 1em;\" xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" viewBox=\"0 0 24 24\"><path d=\"m9 18 6-6-6-6\"></path></svg></strong></a></div>\n</div>\n\n\t</div>\n</div>\n\n\n<div class=\"wp-block-group wp-block-techcrunch-most-popular-posts has-purple-500-background-color has-background is-layout-constrained wp-block-group-is-layout-constrained\">\n<div id=\"wp-block-techcrunch-most-popular-posts__heading\" class=\"wp-block-group is-nowrap is-layout-flex wp-container-core-group-is-layout-6c531013 wp-block-group-is-layout-flex\">\n<h2 class=\"wp-block-heading has-secondary-font-family\" id=\"h-most-popular\" style=\"font-size: var(--wp--preset--font-size--h-2)\">Most Popular</h2>\n<div class=\"wp-block-group wp-block-techcrunch-most-popular-posts__icon has-yellow-700-background-color has-background wp-container-content-962be591 is-layout-constrained wp-block-group-is-layout-constrained\">\n<svg class=\"wp-block-tenup-icon\" style=\"width: 1rem; height: 1rem;\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 32 32\"><path fill=\"var(--c-svg, currentColor)\" d=\"M20.5 8v2h6.586L18.5 18.586l-4.293-4.293a1 1 0 0 0-1.414 0L2.5 24.586 3.914 26l9.586-9.586 4.293 4.293a1 1 0 0 0 1.414 0l9.293-9.293V18h2V8z\"></path></svg>\n</div>\n</div>\n<div class=\"wp-block-query is-layout-flow wp-block-query-is-layout-flow\">\n<ul class=\"wp-block-post-template is-layout-flow wp-block-post-template-is-layout-flow\">\n<li class=\"wp-block-post post-3106279 post type-post status-publish format-standard has-post-thumbnail hentry category-artificial-intelligence tag-ai-unemployment tag-anthropic tag-axios-ai-dummit tag-exclusive\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/25/the-ai-skills-gap-is-here-says-ai-company-and-power-users-are-pulling-ahead/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/25/the-ai-skills-gap-is-here-says-ai-company-and-power-users-are-pulling-ahead/\" class=\"loop-card__title-link\">The AI skills gap is here, says AI company, and power users are pulling ahead</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/rebecca-bellan/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/rebecca-bellan/\">Rebecca Bellan</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3106221 post type-post status-publish format-standard has-post-thumbnail hentry category-artificial-intelligence tag-google tag-pied-piper tag-turboquant\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/25/google-turboquant-ai-memory-compression-silicon-valley-pied-piper/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/25/google-turboquant-ai-memory-compression-silicon-valley-pied-piper/\" class=\"loop-card__title-link\">Google unveils TurboQuant, a new AI memory compression algorithm —&nbsp;and yes, the internet is calling it ‘Pied Piper’</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/sarah-perez/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/sarah-perez/\">Sarah Perez</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3105755 post type-post status-publish format-standard has-post-thumbnail hentry category-artificial-intelligence category-climate tag-data-centers tag-in-brief\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio loop-card--brief\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/24/kentucky-woman-rejects-26-million-offer-to-turn-her-farm-into-a-data-center/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/24/kentucky-woman-rejects-26-million-offer-to-turn-her-farm-into-a-data-center/\" class=\"loop-card__title-link\">Kentucky woman rejects $26M offer to turn her farm into a data center</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/graham-starr/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/graham-starr/\">Graham Starr</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3104948 post type-post status-publish format-standard has-post-thumbnail hentry category-security tag-apple tag-hackers tag-iphone tag-github tag-hacking tag-exclusive tag-cybersecurity tag-cybercrime tag-iverify tag-darksword\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/23/someone-has-publicly-leaked-an-exploit-kit-that-can-hack-millions-of-iphones/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/23/someone-has-publicly-leaked-an-exploit-kit-that-can-hack-millions-of-iphones/\" class=\"loop-card__title-link\">Someone has publicly leaked an exploit kit that can hack millions of iPhones</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/lorenzo-franceschi-bicchierai/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/lorenzo-franceschi-bicchierai/\">Lorenzo Franceschi-Bicchierai</a></li>\n<li><a data-destinationlink=\"https://techcrunch.com/author/zack-whittaker/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/zack-whittaker/\">Zack Whittaker</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3104724 post type-post status-publish format-standard has-post-thumbnail hentry category-artificial-intelligence category-startups tag-cursor tag-kimi tag-moonshot-ai\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/22/cursor-admits-its-new-coding-model-was-built-on-top-of-moonshot-ais-kimi/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/22/cursor-admits-its-new-coding-model-was-built-on-top-of-moonshot-ais-kimi/\" class=\"loop-card__title-link\">Cursor admits its new coding model was built on top of Moonshot AI’s Kimi</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/anthony-ha/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/anthony-ha/\">Anthony Ha</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3104674 post type-post status-publish format-standard has-post-thumbnail hentry category-startups category-security category-artificial-intelligence tag-delve\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/22/delve-accused-of-misleading-customers-with-fake-compliance/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/22/delve-accused-of-misleading-customers-with-fake-compliance/\" class=\"loop-card__title-link\">Delve accused of misleading customers with ‘fake compliance’</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/anthony-ha/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/anthony-ha/\">Anthony Ha</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n<li class=\"wp-block-post post-3104178 post type-post status-publish format-standard has-post-thumbnail hentry category-enterprise category-tc category-hardware category-artificial-intelligence tag-amazon tag-aws tag-data-center tag-trainium\">\n<div class=\"wp-block-techcrunch-card wp-block-null\">\n<div class=\"loop-card loop-card--post-type-post loop-card--list loop-card--horizontal loop-card--wide loop-card--force-storyline-aspect-ratio\">\n<div class=\"loop-card__content\">\n<h3 class=\"loop-card__title\">\n<p>\t\t\t\t<a data-destinationlink=\"https://techcrunch.com/2026/03/22/an-exclusive-tour-of-amazons-trainium-lab-the-chip-thats-won-over-anthropic-openai-even-apple/\" data-event=\"recirculation\" data-module=\"Query\" href=\"https://techcrunch.com/2026/03/22/an-exclusive-tour-of-amazons-trainium-lab-the-chip-thats-won-over-anthropic-openai-even-apple/\" class=\"loop-card__title-link\">An exclusive tour of Amazon’s Trainium lab, the chip that’s won over Anthropic, OpenAI, even Apple&nbsp;</a><br>\n\t\t\t</p></h3>\n<div class=\"loop-card__meta\">\n<ul class=\"loop-card__meta-item loop-card__author-list\">\n<li><a data-destinationlink=\"https://techcrunch.com/author/julie-bort/\" data-event=\"recirculation\" data-module=\"Query\" class=\"loop-card__author\" href=\"https://techcrunch.com/author/julie-bort/\">Julie Bort</a></li>\n</ul></div>\n<p></p></div>\n<p></p></div>\n</div>\n</li>\n</ul>\n</div>\n</div>\n\n\n\n<div class=\"wp-block-group is-layout-flow wp-container-core-group-is-layout-a77db08e wp-block-group-is-layout-flow\">\n<div class=\"ad-unit ad-unit--desktop ad-unit--native wp-block-tc-ads-ad-slot\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-native-right\" data-unitcode=\"us_tc_ros_dt_native_right\" data-test=\"us_tc_ros_dt_native_right\">\n\t</div>\n</div>\n\n\n\n\n<div class=\"ad-unit ad-unit--desktop ad-unit--has-placeholder ad-unit--display wp-block-tc-ads-ad-slot has-background has-gray-100-background-color\">\n\t<div class=\"ad-unit__ad\" id=\"us-tc-ros-dt-mid-right\" data-unitcode=\"us_tc_ros_dt_mid_right\" data-test=\"us_tc_ros_dt_mid_right\">\n\t</div>\n</div>\n\n</div>\n</div>\n</div>\n\t\t</div>\n\t\t\n\t</div>\n\t\n</body></html>",
+      "translated": false,
+      "originalLang": "english"
+    },
+    {
+      "id": "segmentfault-1774629860806-0",
+      "title": "12025年，ONES 收获了这些标杆客户的好评",
+      "url": "https://segmentfault.com/a/1190000047603766",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:44:20.806Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "...",
+      "summary": "...",
+      "content": "<html><head></head><body><p><img width=\"723\" height=\"2692\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4G\" alt=\"\" title=\"\"><img width=\"723\" height=\"3207\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4H\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"2207\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4I\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"3125\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4K\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"3558\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4L\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"5295\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4M\" alt=\"\" title=\"\" loading=\"lazy\"><img width=\"723\" height=\"2164\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnT4N\" alt=\"\" title=\"\" loading=\"lazy\"></p></body></html>"
+    },
+    {
+      "id": "segmentfault-1774629863991-1",
+      "title": "2Qnap威联通Qu405的入手配置手记",
+      "url": "https://segmentfault.com/a/1190000047601115",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:44:23.991Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "我的硬件NAS型号威联通 Qu405 四盘位硬盘 HDD/SSDWD40EFZZ 西数红盘 4T 2块PM863a SSD 960G 2块UPS电源cyberpower UT650EGC硬件组装根据收到的NAS所带的说明书，将你的硬盘和SSD安装到你的NAS中。完成组装后，用网线将你的NAS与路由连...",
+      "summary": "我的硬件NAS型号威联通 Qu405 四盘位硬盘 HDD/SSDWD40EFZZ 西数红盘 4T 2块PM863a SSD 960G 2块UPS电源cyberpower UT650EGC硬件组装根据收到的NAS所带的说明书，将你的硬盘和SSD安装到你的NAS中。完成组装后，用网线将你的NAS与路由连...",
+      "content": "<html><head></head><body><h2>我的硬件</h2><h3>NAS型号</h3><p>威联通 Qu405 四盘位</p><h3>硬盘 HDD/SSD</h3><ul><li>WD40EFZZ 西数红盘 4T 2块</li><li>PM863a SSD 960G 2块</li></ul><h3>UPS电源</h3><p>cyberpower UT650EGC</p><h2>硬件组装</h2><p>根据收到的NAS所带的说明书，将你的硬盘和SSD安装到你的NAS中。</p><p>完成组装后，用网线将你的NAS与路由连接。</p><h3>连接UPS，启动NAS</h3><ul><li>将UPS电脑接入市电插座</li><li>将NAS电脑接入UPS的输出端插孔位置</li><li>使用UPS自带的USB数据线连接UPS和NAS</li><li>根据UPS说明书的操作说明，启动UPS电源</li><li>根据NAS说明书的操作说明，启动NAS。</li><li>等待一段时间，NAS上线</li></ul><h2>系统设置</h2><h3>找到NAS</h3><p>NAS第一次上电后，一般会通过路由器自动分配一个IP地址联网，此时要想登录NAS的界面，你需要使用Qnap提供的软件 <strong>Qfinder</strong>，您可以在<a href=\"https://link.segmentfault.com/?enc=RXaGN8DtGym2sk4J7WrzLw%3D%3D.fvTJZoLY1OsT0wN8gd37zYgoWX5lIx8yno5umBkL3f0nfr0jhevXxmfaYZdJ89Cc\" rel=\"nofollow\" target=\"_blank\">这里下载安装👇</a>  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601118\" alt=\"alt text\" title=\"alt text\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601119\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>打开<strong>Qfinder</strong>后，它可以自动搜索你当前局域网下的Qnap设备，找到您的NAS，即可登入，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601120\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>第一次登录NAS时，一般系统会引导你完成一些必要的系统设置，例如对于Qu405来说，会引导你选择安装QTS系统或者是QuTS系统，我选择的是QTS系统。</p><h2>UPS联动</h2><p>当我们找到我们的NAS，并进入NAS界面后，我们前往〔控制台〕/〔系统〕/〔外部设置〕/〔UPS〕，完成USP联动设置，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601121\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>设置存储池和存储卷</h2><h3>创建Qtier存储池</h3><p>Qtier技术是Qnap独创的冷热数据分层存储融合技术，最大化的充分利用了SSD和HDD硬盘的效率。它可以将高频访问的热数据存储在SSD区，将不常访问的冷数据放在HDD存储区。相对于SSD缓存来说，Qtier技术可以将SSD的空间纳入到存储池中，避免了SSD空间的浪费。更为详细的关于SSD缓存方案和Qtier方案的对比分析，参考<a href=\"https://link.segmentfault.com/?enc=NVOhmRxCoafumTiYEgouvw%3D%3D.%2BS9xImVwE7IxKuo1a%2BW9lVwOyNFEWuAYdy256CgurDSLf62TsBWTgtyjZgmyo7ZO50n1reiSYEa6gA2l3rtNVKkwm6oX9WFCkfumAk%2BJuGfu2OMtLaFWu6HCAId4yM30\" rel=\"nofollow\" target=\"_blank\">Qnap官网的说明</a>。</p><p>就我本次的配置来说，将两块SSD配置为超高速层，组RAID1阵列，并保留了25％的容量空间；将两块HDD硬盘组RAID1阵列，做为容量层，保留20%的快照空间；报警阈值设置为90％。配置完成如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601122\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>创建App精简卷〔系统卷〕</h3><p>首先创建的卷，会被系统自动识别为系统卷，将来NAS安装的应用，会默认安装于此卷。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601123\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>在Qtier存储池上，创建一个容量为200G的精简卷（后期根据需要可以增加），该卷主要用于供系统使用，用于安装应用程序，不要在这里存放用户的数据。如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601124\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>创建Data精简卷</h3><p>在Qtier存储池上，创建一个容量为1T的精简卷（后期根据需要可以增加），该卷主要用于存放各种资料数据，相当于用户的云空间。如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601125\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>创建Home精简卷</h3><p>在Qtier存储池上，创建一个容量为100G的精简卷（后期根据需要可以增加），该卷主要用于存放各用户的Home目录，主要目的是为用户提供一个临时的云端空间，以供临时性的转移文件使用，这个卷不启用快照功能。</p><p>👆以上Qtier存储池和三个存储卷设置完成后，效果如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601126\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>快照计划</h2><p>完成卷设置后，为需要的卷配置合理的快照计划，可以有效的保障数据安全（必要时回滚，&lt;font color=gray&gt;一个具体的例子是，如果你本地的文件被病毒破坏了，而你的同步工具又将已经被破坏了的文件同步到了NAS上，此时如何恢复这个文件呢？就只能通过快照来恢复了&lt;/font&gt;）。选中需要配置快照的卷，然后点〔快照〕/〔快照管理员〕，即可对该卷的快照计划进行配置。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601127\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>App卷快照计划</h3><p>App卷主要用于安装系统应用程序，为了防止在折腾过程中把系统玩崩，所以有必要启用快照功能。一般来说，在折腾NAS应用时，最好的习惯就是手动创建快照，然后再折腾。不过快照计划也为手残党提供了最后的兜底保障。考虑到一般会在周未折腾NAS，所以在每周折腾完成后，在周一的凌晨创建一次快照即可（保存折腾的成果）。如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601128\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>Data卷快照计划</h3><p>数据算是NAS使用的主要目的了，所以数据卷的快照是有必要的，所以我们为数据卷的快照设置每天1个，保留7天.如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601129\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>Home卷快照计划</h3><p>根据以上分析，我们不为Home卷起用快照，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601130\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>设置用户家目录</h3><p>如上， 我们为用户家目录单独创建了Home卷，现在我们统一设置用户家目录配置到Home卷，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601131\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>外网访问</h2><p>网络是NAS的基础，否则您只能在您家的局域网内使用NAS，这无异于龙游浅池。</p><p>如果你想在公网访问你的Qnap设备，你首先需要有一个公网IP，你可以向你的电信运营商申请要求给你分配一个公网IP，一般来说，这个IP是隔段时间变化的，但是这不要紧。</p><p>有了公网IP的前提后，Qnap提供了免费的DDNS服务，你只需要以下设置，便可以在公网环境使用你的NAS设备。</p><ul><li>找到NAS上的网络设置  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601132\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>找到设定，设置静态IP，为你的Qnap设备设置一个静态IP，记住这个IP，后面要用  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601133\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601134\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>设置系统访问端口，和服务器名称，记住这个端口号和名称，后面要用  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601135\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>设置路由器的端口转发规则，设置你的路由器，将来自外部的请求转发给你的Qnap设备。这里的局域网IP就是你的NAS上设置的静态IP，这里的内部端口就是你NAS上设置的系统访问端口参考上文  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601136\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>设置myQNAPcloud云服务，使用Qnap提供的DDNs功能，解析你的公网IP  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601137\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601138\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>DDNs开通后，会生成一个免费的二级域名，样式如： www.服务器名称.mycloudnas.com，将来你可以通过该域名来访问你的Qnap设备。</li><li>完成以上设置后，便可以测试你的DDNs是否连通了。在DDNS设置页面的底部，点击【测试连接性】，观测域名是否能成功连接到Qnap设备。👇如下可以看到系统访问端口可以连通到Qnap了。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601139\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>做为测试，你可以将你的手机切换为非wifi模式，输入您的DDNS域名和端口号，便可以打开NAS页面（由于一些原因，在大陆使用Qnap的域名解析连接性不佳，有条件的还是建议自建DDNs服务）  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601140\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li></ul><p>🚩 如果你无法打开NAS页面，或者收到 〔ERR_NAME_NOT_RESOLVED〕，那是因为你的网络环境无法连接到Qnap的DDNS服务器所致，原因嘛，大家都懂得。</p><h2>自建DDNS解析脚本</h2><p>除了上述通过Qnap二级域名实现外网访问外，我们还可以自己申请一级域名（一些冷门域名很便宜的，一次性买10年也不过百元级），然后我们在NAS上通过ddns-go脚本将我们的NAS的公网IP（实际应该是你的路由器的IP地址）更新到域名上，这样我们就可以通过我们自己的域名自由访问我们的NAS了。</p><p>ddns-go是一个运行于Docker里的镜像容器，我一直在使用不低于2年时间，稳定性是非常棒的。</p><h3>准备域名</h3><p>我是在阿里云上申请的域名。自己用嘛，不求闻达于诸侯，所以越便宜越好，能解析是唯一的要求。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601141\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>我使用的是免费套餐，在国内全胜基本没有遇到无法解析的情况，也可以根据自己的实际使用需求，开通付费套餐。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601142\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>安装ContainerStation</h3><p>ContainerStation是Qnap NAS中运行Docker的平台，你可以在NAS中的AppCenter中找到并安装它。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601143\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>等ContainerStation安装完成后，我们便可以在里面运行我们需要的镜像包了。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601144\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>由于DockerHub在国内的访问性不佳，所以推荐在ContainerStation中添加阿里云Docker镜像地址，以提高Docker镜像的拉取速度。打开<a href=\"https://link.segmentfault.com/?enc=G6bFl0f6CybHu2qUO7wVww%3D%3D.nh1zpa6V%2BCvC8D3ie1nk0VaOwosGEZRjPnOlOrR4gM0%3D\" rel=\"nofollow\" target=\"_blank\">容器镜像服务</a>(需要登录你的账号，每个账号的镜像地址都是不一样的)，在👈左侧找到〔镜像工具〕/〔镜像加速器〕，复制加速器地址备用。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601145\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>然后打开ContainerStation，找到〔存储库〕，然后〔添加〕  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601146\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>使用jeessy/ddns-go进行DDNS动态解析</h3><p>本人使用jeessy/ddns-go进行DDNS解析，ddns-go是一个开源在dockerHub上的docker镜像，大家可以在ContainerStation中从dockerHub提取该镜像，也可以在电脑上下载  <br><a href=\"https://link.segmentfault.com/?enc=vNlFAdbcIze401bRh8vcaw%3D%3D.63BuDPvJ6x9MBTHHox%2Fc1n%2FvaBI96nXPudmbtktpv76zoe2cQOdZXiSzHLjBXUb%2BS4bV3G%2BSM6SWTZtsdXAdXg%3D%3D\" rel=\"nofollow\" target=\"_blank\">👉ddns-go镜像文件（amd64 CPU）</a>  <br><a href=\"https://link.segmentfault.com/?enc=n9SELPiDEcJtcChOAs%2FNNA%3D%3D.8fZ7Qxo7w4fBCsTSuTGd9DjS15xFJfrtH6EsLsGfTXrpHo89mH9Os%2BfUR%2FJVnBRExTB%2FuSGFZuH6%2FmW%2Bm4W19g%3D%3D\" rel=\"nofollow\" target=\"_blank\">👉ddns-go镜像文件（arm CPU）</a>  <br>然后导入到ContainerStation中使用。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601147\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h4>生成容器</h4><p>ddns-go的镜像，相当于是可以运行的一个exe文件，我们现在需要把这个exe文件〔其实是docker镜像〕运行起来，就是说需要创建一个让镜像跑起来的容器。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601148\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>等待容器创建完成  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601149\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>在容器页面就可以看到已经在运行的ddns-go了  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601150\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>🚩 如果容器运行出现 exec /app/ddns-go: exec format error 这种错误，说明ddns-go与Qnap设备的CPU架构不兼容，你需要换一下ddns-go镜像。</p><h4>设置ddns-go参数</h4><p>在局域网环境下，在浏览器中打开你的NAS IP地址 + 端口号 9876（例如192.168.1.43:9876）, 就可以对ddns-go进行参数设置了：  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601151\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>登录后，可以看到参数设置页面  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601152\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>👆上图中，点击〔创建 AccessKey〕即可跳转到对应dns服务商的AccessKey创建页面（可能需要登录），根据引导完成AccessKey创建后，将AccessKey ID和AccessKey Secret填回到本页面中  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601153\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>在IPV4设置一栏，把你申请到的域名填写到Domains中，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601154\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>翻到最下面，如果你有Webhook通道（例如可能在飞书中添加消息机器人，开通Webhook连接），那么你可以在这里设置Webhook通知，当IP变化时，通过Webhook向你发送通知消息。如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601155\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>对于飞书机器人，我用的RequestBody设置如下👇</p><pre><code class=\"json\">{\n    \"msg_type\": \"post\",\n    \"content\": {\n        \"post\": {\n            \"zh_cn\": {\n                \"title\": \"Hi，你的公网IP变了\",\n                \"content\": [\n                    [\n                        {\n                            \"tag\": \"text\",\n                            \"text\": \"IPv4地址：#{ipv4Addr}\"\n                        }\n                    ],\n                    [\n                        {\n                            \"tag\": \"text\",\n                            \"text\": \"域名更新结果：#{ipv4Result}\"\n                        }\n                    ]\n                ]\n            }\n        }\n    }\n}</code></pre><p>飞书上收到的消息如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601156\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>以上设置完成后，您的ddns应该已经可以正常解析更新了，在容器界面，选中ddns-go容器，观察其日志小黑窗口，应该有如下消息出现👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601157\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>至此，你可以通过以上设置，配合你的路由器的端口转发，你便可以通过域名：端口访问你的NAS设备了。你如你可以通过 www.zhsan.xyz:1234 访问到你的NAS。</p><h2>无密码登录</h2><p>你需要在移动端下载并安装APP &lt;font color=Green&gt;QNAP Authenticator&lt;/font&gt;，你可以在<a href=\"https://link.segmentfault.com/?enc=uLcG%2BpkAzbh5N4LNTVPMzQ%3D%3D.ANmWIc%2BNm%2B%2BRNidJcxH%2F94IxC98VXhM9H468b0x7iklTBkhmTlgrJoxFD%2FMFhpLCloYPXBbUQIKXzq%2ByDY1c2A%3D%3D\" rel=\"nofollow\" target=\"_blank\">Qnap官网</a>下载到该APP：  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601158\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>然后在您的NAS界面，找到〔登录和安全性〕，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601159\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>根据引导设置无密码登录〔或者使用两步验证〕，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601160\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>设置成功后，您将看到你的受权的设备如下👇<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601161\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>🚩 在设置〔二次验证〕或者是〔无密码登录〕时，将有两个验证方式，一种是本地验证，一种是云端验证；</p><ul><li>〔本地验证〕是指在你的局域网中寻找识别NAS设备进行验证，这种验证方式只能当你的移动设备和NAS处于同一局域网时可用使用。</li><li><p>〔云端验证〕是指通过登录Qnap ID账号，从你的Qnap ID账号认证的设备列表中寻找识别NAS设备进行验证，这种验证方式不受局域网环境限制。但是这种验证方式需要具备以下条件：</p><ul><li>你的设备已经在Qnap ID中注册</li><li>你的NAS开通了DDNS服务，这将使得Qnap服务器可以找到并连接你的NAS设备</li></ul></li></ul><h2>HTTPS安全访问</h2><p>如果你需要在外网访问你的NAS设备，Https加密通信就是必要的。当你在外网访问你的NAS设备时，就像你在用手机和你的NAS设备通电话。</p><ul><li>如果你们使用http访问NAS，就像是你们的通话是明文通话，如果有坏人监听了你们的通话，那么他就知道你们说了什么，一旦让他监听到了你的NAS的用户名和密码，那他就可以通过这个用户名和密码登录到你的NAS，这与家里进了贼没有什么区别。</li><li>如果你们全胜https访问NAS，就像是你们的通话是用经过加密的暗语，你们的通话内容除了你们自己能懂之外，即使是被坏人监听到了，它也无法理解你们的通话内容，也就不会泄露秘密。</li></ul><p>为了全胜https通信，我们需要为https配置SSL证书，这个SSL证书的作用就是负责给https通信的内容进行加密。</p><h3>申请SSL证书</h3><p>一般来说，SSL证书需要付费（年付）使用，但是我们也可以获取到免费的测试用的SSL证书，这些免费的SSL证书的加密效果与付费的SSL证书的加密效果是一样的。</p><p>阿里云和腾讯云都提供限时免费的SSL证书以供测试使用，我的域名是在阿里云进行的解析，所以此处以阿里云的SSL证书申请为例来进行说明。</p><ul><li>登录<a href=\"https://link.segmentfault.com/?enc=F7UrxNBLYd7gGIKt%2BVqRsA%3D%3D.oJPz%2FKsegYrR0YX2UILWwXOBo%2F1tZtiYWhw0bQZexjoIMfn%2BIbadG8ET8dgv5mVl%2BObHd2UBL0gKJGpkUV9zn907mlOlbgKLWkzN2MD1QXdyEOhxkEkAStOmVo1OVNkW\" rel=\"nofollow\" target=\"_blank\">阿里云平台</a>，搜索 〔数字证书管理服务〕，然后〔登录控制台〕，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601162\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601163\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>购买免费SSL证书名额（每个账户每年有一次购买机会，一次买20个证书名额，一个名额用90天），如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601164\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601165\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>创建SSL并提交申请，根据下图填写必要的信息后，提交审核，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601166\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>验证域名，当你提交了SSL申请后，我们在SSL证书管理页面就可以看到我们提交SSL申请的记录了，此时我们需要验证一下我们的域名是否OK， 点击SSL申请记录右侧的〔验证〕按钮，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601167\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>在弹出的证书申请页中，我们找到第三步，点击〔验证〕按钮，等待验证完成后，显示“域名验证成功。。。。。”信息，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601168\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>等待SSL签发。做完以上步骤后，我们只需要等待域名签发就可以了，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601169\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li><li>下载SSL证书，解压后备用，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601170\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></li></ul><h3>安装SSL证书</h3><p>我们申请到了SSL证书后，我们就需要将它安装到我们的NAS中，才能使用https访问我们的NAS。我们回到NAS页面，操作如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601171\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>然后等待证书导入完成即可，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601172\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>🚩<strong>注意，我们申请的SSL证书只有90天有效，过期后我们需要重新通过以上步骤申请新的SSL证书并导入。或者可以付费申请期限为1年的SSL证书，这样就可以自动延期了。</strong></p><h3>启用HTTPS访问</h3><p>以上工作完成后，我们便可以为我们的NAS启用HTTPS服务了。我们把https的端口号设置为12345（此处为举例），设置如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601173\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>调整路由器端口映射</h3><p>在上图中，我们可以看到我们的NAS的系统端口有两个，一个是1234， 一个是1235。</p><ul><li>其中1235是https服务端口，这个端口的通信是加密的，是安全的。我们可以把这个端口曝露在公网上使用，我们在公网环境下，可以通过 <a href=\"https://link.segmentfault.com/?enc=XJPeCcLwojAKrA2AHutnWw%3D%3D.fvTdgWbFv41EsyOyBSwHYGS9gcLnYjxSLb4odlS2OHw%3D\" rel=\"nofollow\" target=\"_blank\">https://www.zhangsan.xyz:1235</a> 来以https方式访问我们的NAS。</li><li>其中1234是http服务端口，这个端口的通假是没有加密的，是不安全的。所以我们不能把这个端口曝露在公网上，这个端口只可以在局域网环境下访问NAS。</li></ul><p>综合以上，我们需要在我们的路由口中调整端口映射规则，只把端口1235映射曝露到公网上，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601174\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>关于公网安全</h2><ul><li><h3>公网端口</h3></li></ul><p>默认的NAS端口一般是5000,或者5001,这也是黑客重点扫描的NAS端口，建议大家在设置外网端口时，避开这两个端口。</p><ul><li><h3>Telnet/SSH</h3></li></ul><p>这两个功能，不要曝露在公网，如果不使用，也不要打开，如果要用，用完记得关闭<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601175\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>禁用admin账户</h3></li></ul><p>不要使用（禁用）NAS默认的管理员账户，这个一般NAS系统是默认禁用的<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601176\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>开启登录两步验证</h3></li></ul><p>进一步提高NAS页面的登录安全性  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601177\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>关闭UPnp服务</h3></li></ul><p><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601178\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>关闭Bonjour服务</h3></li></ul><p><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601179\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>启用IP防护</h3></li></ul><p><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601180\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h3>启用账户防护</h3></li></ul><p><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601181\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li><h4>关闭IPV6</h4></li></ul><p>如果你有了IPV4的公网IP，则通过IPV4即可访问NAS，此时关闭IPV6有助于提高NAS的安全性，尤其避免在域名解析中解析IPV6<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601182\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>Qsync文件同步</h2><p>Qnap提供的Qsync文件同步技术，是一个非常好用，也总是被忽略的技术。尤其是Qsync提供的节省空间模式，让用户可以在存储空间较小的电脑上，也能处理NAS上的海量文档。</p><h3>NAS安装Qsync</h3><p>为了使用Qsync功能，我们需要在NAS上安装Qync服务端，我们在AppCenter中寻找并安装Qsync，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601183\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>Qsync安装完成后，我们可以打开Qsync，为共享文件夹授予使用权限，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601184\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>电脑端安装Qsync</h3><p>在你需要同步文件的电脑上，也需要安装Qsync客户端，这样Qsync就可以帮我们同步电脑-NAS两端的文件了。你可以<a href=\"https://link.segmentfault.com/?enc=icxwOqXxAJ%2BvkHpvH%2Fj3Vg%3D%3D.8A9NZctGbvwUeo6sgnUZTClXB%2F9d6GPjRtANIjRRYm%2FMp1ADrHdXlGoxCcy55rHQbyyNczx2%2BuusQJT7gbsMeg%3D%3D\" rel=\"nofollow\" target=\"_blank\">👉在这里下载到Qsync</a>  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601185\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601186\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>Qsync下载安装完成后，你可以在Qsync中配置文件夹同步任务，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601187\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>然后选择同步任务👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601188\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>然后填写NAS的登录信息，以便Qsync可以知道你要同哪个NAS上同步数据，👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601189\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>然后，你就可以添加同步的双方文件夹了，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601190\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601191\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>🚩 <strong>关于〔节省空间模式〕，最值得称道的一点，就是它不会让我们在本地编辑文档的时候，被因Qsync的同步功能而锁定文档，导致我们编辑的文档无法保存。然而，这在一些其它技术不用心的网盘工具中，是经常发生的，这导致用户的编辑经常无法保存而丢失。大家在选择网盘工具和同步工具时，需要特别注意这一点</strong></p><p>通过Qsync同步文档，在文档的图标上会有所区别。👇如下图所示，&lt;font color=red&gt;<strong>1</strong>&lt;/font&gt;号位置的文档没有云朵图标，说明这个文档是在本地的；&lt;font color=red&gt;<strong>2</strong>&lt;/font&gt;号位置的文档有云朵图标，说明这个文档是在云端的，它在本地不占用空间，当你打开他时，或者移动它时，Qsync会感知到你的操作，会自动从NAS上把文档同步到本地，以供你使用。  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601192\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h3>公网下连接Qsync</h3><p>如果你的电脑处于公网环境下，请按以下操作切换<strong>Qsync</strong>的连接方式，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601193\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><h2>使用Qfile Pro</h2><p><strong>Qfile</strong>是Qnap开发的移动端使用的NAS文件同步工具，我们上文中介绍了<strong>Qsync</strong>，<strong>Qsync</strong>这个工具也有移去版本的app，功能与电脑版本的完全一致。但是在移去端，我更喜欢全胜<strong>Qfile</strong>连接NAS，<strong>Qfile</strong>集成了<strong>Qsync</strong>的文件同步功能的同时，我觉得更吸引我的点在于，<strong>Qfile</strong>不会把<strong>NAS</strong>上的文档同步到本地，这恰好避免了<strong>NAS</strong>上的海量文档对手机浏览功能的污染（例如<strong>NAS</strong>上的图片会污染手机想册的浏览体验）。</p><h3>下载Qfile Pro</h3><p>Qnap官网提供了<strong>Qfile Pro</strong>的下载链接，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601194\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>下载对应的版本，完成<strong>Qfile Pro</strong>的安装。</p><h3>局域网下连接NAS</h3><p>我们完成<strong>Qfile</strong>的安装后，我们首先在局域网下进行<strong>Qfile</strong>与<strong>NAS</strong>的链接。具体操作如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601195\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><ul><li>👉其中第&lt;font color=red&gt;<strong>15</strong>&lt;/font&gt;步，可以根据情况选择〔邮件认证〕或者是〔输入密码〕。</li><li>👉另外需要注意第&lt;font color=red&gt;<strong>11</strong>&lt;/font&gt;步，打开〔检测可用的连接方法〕。</li></ul><h3>外网环境下连接NAS</h3><p>我们希望在外网环境下也可以在手机上查阅NAS上的资料，但这需要我们的路由器为我们打开NAS的连接端口（这在〔<strong>HTTPS安全访问</strong>〕一章中已经有所说明）。</p><p>我们关闭wifi，使手机处于4G网络状态下进行操作，如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601196\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\">  <br>继续操作如下👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601197\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>以上操作完成后，我们就可以在外网环境下连接我们的NAS了。随时随地可以访问NAS，这才能发挥NAS最大的价值。</p><h3>内外网自适应</h3><p>当我们完成以上的操作后，我们的<strong>Qfile</strong>可以在外网环境下连接家里的NAS，但是它不能根据我们所处的网络环境（内网 or 外网）自动切换连接方式，这导致我们手机的网络环境切换后，<strong>Qfile</strong>就无法连接NAS，需要我们每次手动切换连接方式。要想让<strong>Qfile</strong>可以自动根据网络环境切换连接方式，请完成以下操作👇  <br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047601198\" alt=\"alt text\" title=\"alt text\" loading=\"lazy\"></p><p>完成以上操作后，<strong>Qfile</strong>便可以根据我们的设备所处的网络环境自适应调整连接方式了。</p><p>关于<strong>Qfile</strong>的其它使用方式，这是非常丰富的，各位自行摸索吧。</p></body></html>"
+    },
+    {
+      "id": "segmentfault-1774629865970-2",
+      "title": "3蚂蚁灵波科技全面开源 LingBot-VLA 具身大模型",
+      "url": "https://segmentfault.com/a/1190000047577568",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T16:44:25.970Z",
+      "tags": [
+        "dev"
+      ],
+      "excerpt": "思否编辑部观察具身智能正在经历从实验室走向产业化的关键转折点。长期以来,机器人操控模型面临着\"一机一训\"的困境——每换一个机器人本体、每增加一个新任务,都需要重新采集数据、重新训练模型,这种高昂的迁移成本严重制约了具身智能的规模化落地。此次蚂蚁集团开源的 LingBot-VLA 具身大模型,为行业带...",
+      "summary": "思否编辑部观察具身智能正在经历从实验室走向产业化的关键转折点。长期以来,机器人操控模型面临着\"一机一训\"的困境——每换一个机器人本体、每增加一个新任务,都需要重新采集数据、重新训练模型,这种高昂的迁移成本严重制约了具身智能的规模化落地。此次蚂蚁集团开源的 LingBot-VLA 具身大模型,为行业带...",
+      "content": "<html><head></head><body><p><strong>思否编辑部观察</strong></p><p>具身智能正在经历从实验室走向产业化的关键转折点。长期以来,机器人操控模型面临着\"一机一训\"的困境——每换一个机器人本体、每增加一个新任务,都需要重新采集数据、重新训练模型,这种高昂的迁移成本严重制约了具身智能的规模化落地。</p><p>此次蚂蚁集团开源的 LingBot-VLA 具身大模型,为行业带来了三个重要突破:</p><p><strong>1. 首次验证了具身智能领域的 Scaling Law</strong>  <br>通过 20,000 小时真实机器人数据的预训练,系统性证明了 VLA 模型性能随数据规模持续提升的规律。这一发现意义重大——它表明具身智能可以像大语言模型一样,通过\"大数据+大模型\"的范式实现能力跃迁,为行业指明了清晰的技术路线。</p><p><strong>2. 解决了跨本体泛化的核心难题</strong>  <br>通过涵盖 9 种主流双臂机器人构型的大规模预训练,LingBot-VLA 实现了\"一个大脑,多种身体\"的愿景。在 GM-100 真机评测中,其跨本体泛化成功率达到 17.3%,这意味着同一个模型可以快速适配不同厂商的机器人硬件,大幅降低了商业化部署的门槛。</p><p><strong>3. 打造了真正实用的开源生态</strong>  <br>不同于许多\"只开源权重\"的项目,LingBot-VLA 同步开放了数据处理、高效微调、自动化评估的全套工具链,训练效率达到主流框架的 1.5~2.8 倍。这种\"开箱即用\"的完整方案,将帮助开发者以更低成本快速落地自己的具身智能应用。</p><p>特别值得关注的是,LingBot-VLA 引入深度信息后的性能提升,体现了空间感知能力对机器人操控的重要性。结合昨日开源的 LingBot-Depth 模型,我们看到了一个清晰的技术演进路径:从精准的空间感知到智能的操控决策,具身智能正在构建起完整的\"感知-认知-执行\"闭环。</p><p>随着蚂蚁集团承诺未来几天将陆续开源更多具身智能成果,我们有理由相信,2026 年将成为具身智能从\"能用\"到\"好用\"、从\"实验室\"到\"生产线\"的关键转折年。</p><p><em>SegmentFault 思否编辑部</em>  <br><em>2026年1月</em></p><hr><p><em>以下内容转载自蚂蚁灵波科技官方公众号。</em></p><p><strong>继昨日开源高精度空间感知模型 LingBot-Depth 后，今天，我们为大家带来了具身大模型 LingBot-VLA。</strong></p><p><a href=\"https://link.segmentfault.com/?enc=4cU4IQpGVgs1vMlx2ImbTg%3D%3D.ITE5Cr3PO57VLocN%2F9qc8gf1Hr3pkbWynpKs3GTl1Bw9NR4rRYfC3eteMQiQ1EJVLQ6Jy8avo%2B%2BsbAECy7aD1A%3D%3D\" rel=\"nofollow\" target=\"_blank\">LingBot-VLA 具身大模型全面开源</a></p><p>在上海交通大学开源的具身评测基准 GM-100（包含 100 项真实操作任务）测试中，LingBot-VLA 在 3 个不同的真实机器人平台上，跨本体泛化平均成功率相较于 Pi0.5 的 13.0% 提升至 15.7%（w/o Depth）。引入深度信息（w/ Depth）后，空间感知能力增强，平均成功率进一步攀升至 17.3%，展现了 LingBot-VLA 强大的准确性和泛化性。</p><p><img width=\"723\" height=\"585\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnNge\" alt=\"640.webp\" title=\"640.webp\"></p><p>在 GM-100 真机评测中，LingBot-VLA 跨本体泛化性能领先</p><p>在 RoboTwin 2.0 仿真基准（包含50项任务）评测中，面对高强度的环境随机化干扰（如光照、杂物、高度扰动），LingBot-VLA 凭借独特的可学习查询对齐机制，高度融合深度信息，操作成功率比 Pi0.5 提升了 9.92%，实现了从虚拟仿真到真实落地的全方位性能领跑。</p><p><img width=\"723\" height=\"488\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnNgf\" alt=\"640 (1).webp\" title=\"640 (1).webp\" loading=\"lazy\"></p><p>在 RoboTwin 2.0 仿真评测中，LingBot-VLA 跨任务泛化性能领先</p><h4>01 Scaling Law 下的大规模真机数据预训练</h4><p>长期以来，由于本体差异、任务差异、环境差异等，具身智能模型落地面临严重的泛化性挑战。开发者往往需要针对不同硬件和不同任务重复采集大量数据进行后训练，直接抬高了落地成本，也使行业难以形成可规模化复制的交付路径。<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047577570\" alt=\"图片\" title=\"图片\" loading=\"lazy\"><br>针对上述问题，我们基于在海量真实世界数据上的预训练，第一次系统研究了 VLA 模型在真实机器人任务性能上随着数据规模增长时的 Scaling Law。项目发现随着预训练数据规模从 3,000 小时扩展到 6,000、13,000、18,000，最终至 20,000 小时，模型在下游任务的成功率获得持续且显著的提升。值得注意的是，预训练数据量达到 20,000 小时时，模型性能仍呈现上升趋势，表明 VLA 的性能仍然能够随着数据量的增加而提升。这些实验结果证明了 VLA 模型在用真实数据预训练时呈现了良好的可扩展性，为未来的 VLA 开发和大规模数据挖掘提供了重要启示。<br><img referrerpolicy=\"no-referrer\" src=\"/img/remote/1460000047577571\" alt=\"图片\" title=\"图片\" loading=\"lazy\"><br>依此研究结果，我们仔细构造了&nbsp;20,000&nbsp;小时的真实机器人训练数据，涵盖了&nbsp;9&nbsp;种主流的双臂机器人构型（包括 AgileX Cobot Magic，Galaxea R1Pro、R1Lite 、AgiBot G1等）。为了进行精确的数据标注，数据里的视频由人工标注者按原子动作进行切分，并用大模型标注视频对应任务和子任务。在 codebase 的开发中，适配了 Fully Sharded Data Parallel (FSDP) 分布式、混合精度、算子融合等优化，从而让同一个“大脑”可以快速迁移至不同形态的机器人上，并在任务变化、环境变化时保持可用的成功率与鲁棒性。</p><h4>02 深度信息辅助的机器人操控性能提升</h4><p><img width=\"723\" height=\"204\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnNgg\" alt=\"640 (2).webp\" title=\"640 (2).webp\" loading=\"lazy\"><br>仿真实验结果</p><p>为了显式捕捉操控环境中的空间感知能力，并进一步提升机器人执行的鲁棒性，我们采用了一种基于查询向量（query）的深度蒸馏方法。具体而言，我们引入了与三视角操作图像相对应的可学习 queries，这些 queries 经 VLM 处理后，与 LingBot-Depth 输出的 depth embeddings 进行对齐。这种对齐机制在维持模型训练与推理的效率的同时，有效将深度信息集成到 LingBot-VLA 中。在真实机器人平台和仿真环境下进行的广泛实验证明，深度信息的融入提升了 LingBot-VLA 的操控性能。</p><h4>03 后训练成本低、效率高、代码全开源，真正实用的 VLA 模型</h4><p>得益于涵盖主流构型和详尽任务的大规模预训练，LingBot-VLA 具备强大的通用操控能力，并且能够将其高效迁移到多样的下游机器人任务中。实验表明，LingBot-VLA 在下游任务中能够使用更少的数据，达到超越 π0.5 的性能；并且性能优势会随着数据量的增加而持续扩大。目前，LingBot-VLA 已与星海图、松灵、乐聚等知名机器人厂商完成适配，验证了模型在不同构型机器人上的跨本体迁移能力。<br><img width=\"723\" height=\"487\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnNgr\" alt=\"640 (3).webp\" title=\"640 (3).webp\" loading=\"lazy\"></p><p>与此同时，我们构建了一套高效的后训练工具链，在 8 卡 GPU 配置下实现了单卡每秒 261 个样本的吞吐量，其训练效率达到 StarVLA、OpenPI 等主流框架的 1.5~2.8 倍，实现了数据与算力成本的双重降低。此次开源，我们不仅提供了模型权重，还同步开放了包含数据处理、高效微调及自动化评估在内的全套代码库。我们希望这一举措可以大幅压缩模型训练周期，降低商业化落地的算力与时间门槛，助力开发者以更低成本快速适配自有场景，提升模型实用性。目前我们的模型、后训练代码、技术报告、以及我们和上海交大共同打造的 GM-100 Benchmark 已全部开源，欢迎大家访问我们的开源仓库。</p><pre><code>Website：\nhttps://technology.robbyant.com/lingbot-vla\n\nModel：\nhttps://huggingface.co/collections/robbyant/lingbot-vla\nhttps://www.modelscope.cn/collections/Robbyant/LingBot-VLA\n\nDatasets:\nhttps://huggingface.co/datasets/robbyant/lingbot-GM-100\n\nCode:\nhttps://github.com/Robbyant/lingbot-vla\n\nTech Report:\nhttps://arxiv.org/abs/2601.18692</code></pre><p>具身智能的大规模应用依赖高效的具身大模型，这直接决定了模型是否可用以及能否用得起。我们希望通过 LingBot-VLA 的开源，积极探索具身智能上限，推进具身智能研发早日进入可复用、可验证、可规模化落地的新阶段。</p><p>本周，我们已相继开源 LingBot-Depth 和 LingBot-VLA 两款模型，未来几天，我们还将陆续为大家带来我们在具身智能领域智能基座方向的更多成果。我们期待与全球开发者、研究者、产业伙伴一起，加速具身智能技术的迭代与规模化应用，助力 AGI 更快到来。</p><p><img width=\"723\" height=\"702\" referrerpolicy=\"no-referrer\" src=\"/img/bVdnNgh\" alt=\"image.png\" title=\"image.png\" loading=\"lazy\"></p></body></html>"
+    },
+    {
+      "id": "huxiu-1774629878801-2",
+      "title": "“新锐分区”发布，中科院期刊分区表要退出历史舞台？",
+      "url": "https://www.huxiu.com/article/4846108.html",
+      "source": "虎嗅",
+      "icon": "🐅",
+      "category": "business",
+      "time": "2026-03-27T16:44:38.801Z",
+      "tags": [
+        "business"
+      ],
+      "excerpt": "**新锐分区的发布引发对中科院期刊分区表未来地位的猜测，核心争议围绕评价体系的独立性、公信力及对本土期刊的倾斜政策。**\n\n---\n\n## 1. 中科院分区表与新锐分区的更替争议  \n- 新锐学术发布《新锐期刊分区表》，标榜“独立、公益、免费”，团队与中科院分区表高度重合，但未明确是否替代后者。  ...",
+      "summary": "**新锐分区的发布引发对中科院期刊分区表未来地位的猜测，核心争议围绕评价体系的独立性、公信力及对本土期刊的倾斜政策。**\n\n---\n\n## 1. 中科院分区表与新锐分区的更替争议  \n- 新锐学术发布《新锐期刊分区表》，标榜“独立、公益、免费”，团队与中科院分区表高度重合，但未明确是否替代后者。  ...",
+      "content": "<!--[--><!--[--><html><head></head><body><div id=\"top\" class=\"article-detail\" data-v-a9f550cd=\"\"><div data-v-a9f550cd=\"\"><div id=\"ai-summary\" data-v-a9f550cd=\"\">**新锐分区的发布引发对中科院期刊分区表未来地位的猜测，核心争议围绕评价体系的独立性、公信力及对本土期刊的倾斜政策。**\n\n---\n\n## 1. 中科院分区表与新锐分区的更替争议  \n- 新锐学术发布《新锐期刊分区表》，标榜“独立、公益、免费”，团队与中科院分区表高度重合，但未明确是否替代后者。  \n- 中科院分区表2026年未更新，团队回应称“需等待领导批复”，公众号名称已逐步淡化“中科院”标识。  \n\n## 2. 从“官方”到“第三方”的公信力挑战  \n- 中科院分区表长期被误认为官方评价工具，2018年因学科合并争议致歉，声明其仅为“课题研究”。  \n- 新锐分区以独立第三方名义发布，但团队人员重叠引发对知识产权和独立性的质疑，科研人员担忧其权威性下降。  \n\n## 3. 本土期刊扶持政策引发的争议  \n- 分区表团队通过“中国SCI期刊支持计划”和“同质等效”政策，快速提升本土期刊分区（如《科学通报（中文版）》从四区升至一区）。  \n- 国际期刊（如《Nano Letters》）意外降区，本土期刊升区过快被批“不够透明”，Nature曾发文批评该评价体系。  \n\n## 4. 分区表在科研评价中的实际作用  \n- 官方称分区表仅用于“投稿参考和宏观判断”，但实际已成为聘用、晋升等微观评价的关键指标。  \n- 新锐分区保留预警机制（37种期刊标注“under review”），但弱化“中科院”标签后，其政策影响力存疑。  \n\n---  \n**关键数据**：新锐分区覆盖22299种期刊和15种计算机会议论文集；中科院分区表自2004年持续至2025年，2026年未更新。</div><div class=\"detail-wrap\" data-v-a9f550cd=\"\"><div class=\"article__top-img js-article-top-img\" data-v-a9f550cd=\"\"><span data-v-a9f550cd=\"\"></span><img class=\"article-img\" src=\"https://img.huxiucdn.com/article/cover/202603/27/195922048329.jpg?imageView2/1/w/788/h/444/|imageMogr2/strip/interlace/1/quality/85/format/jpg\" alt=\"“新锐分区”发布，中科院期刊分区表要退出历史舞台？\" data-v-a9f550cd=\"\"></div></div><section class=\"article-wrap normal\" data-v-a9f550cd=\"\"><div class=\"article__bottom-content justify-center clearfix article__bottom-content-padding\" data-v-a9f550cd=\"\"><!----><div class=\"article__bottom-content__right fl\" data-v-a9f550cd=\"\"><div id=\"js-article-read-wrap\" data-v-a9f550cd=\"\"><span data-v-a9f550cd=\"\"></span><!----><!----><span class=\"article__time\" data-v-a9f550cd=\"\">2026-03-27 20:07</span><h1 class=\"article__title\" data-v-a9f550cd=\"\">“新锐分区”发布，中科院期刊分区表要退出历史舞台？<!----></h1><div class=\"article__author-info-box\" data-v-a9f550cd=\"\"><a href=\"https://www.huxiu.com/member/1425891.html\" target=\"_blank\" class=\"article-author-info\" data-v-a9f550cd=\"\"><img class=\"hx-avatar\" style=\"width:30px;height:30px;\" alt=\"知识分子zsfz\" data-v-a9f550cd=\"\"><span class=\"author-info__username\" data-v-a9f550cd=\"\">知识分子zsfz</span><span class=\"user-icons-wrap\" data-v-a9f550cd=\"\" data-v-dfc547f0=\"\"><!--[--><!--]--></span></a><button class=\"hx-button hx-btn-default is-round follow-btn\" style=\"\" data-v-a9f550cd=\"\" data-v-afdebf5e=\"\"><!----><span><!--[--><!--]--></span></button></div><span data-v-a9f550cd=\"\"></span><!----><!----><!----><div class=\"article-wrap js-article-wrap auto-height\" data-v-a9f550cd=\"\"><div class=\"article__content\" data-v-a9f550cd=\"\"><p data-check-id=\"744201\"><span class=\"text-remarks\" label=\"备注\">本文来自微信公众号：</span><a href=\"https://mp.weixin.qq.com/s/G0VkWMPyDaRZVHBDx4lI1g\" target=\"_blank\" rel=\"nofollow\" style=\"text-decoration: none;\"><span class=\"text-remarks\">知识分子</span></a><span class=\"text-remarks\">，作者：张天祁，题图来自：视觉中国</span></p><p data-check-id=\"333762\"><br></p><p data-check-id=\"832160\">2026年3月24日，由新锐学术研制的《新锐期刊分区表》<span class=\"text-remarks\" label=\"备注\">（简称“新锐分区”）</span>正式发布，其核心理念为“独立、公益、免费、开放”。与此同时，去年同期发布的中国科学院文献情报中心《期刊分区表》却并未更新，这引发了外界关于“中科院期刊分区表是否已退出历史舞台”的猜测<sup>[1]</sup>。</p><p data-check-id=\"380071\"><br></p><p data-check-id=\"561223\">去年11月，原本发布中科院期刊分区表的“期刊分区表”公众号发布一则通告。“应广大用户的要求，‘期刊分区表’公众号将专注于发布期刊分区表相关的动态信息，如年度数据更新、分区方法介绍等内容，其它相关资讯将通过‘新锐学术’公众号推送”。这说明了两者之间的联系。</p><p data-check-id=\"773234\"><br></p><p data-check-id=\"989671\">针对中国科学院文献情报中心《期刊分区表》是否会被新锐学术的《新锐期刊分区表》取代，《知识分子》向分区表团队成员求证。该成员表示：中科院文献情报中心《期刊分区表》今年尚未发布，目前也未确定是否会发布。新锐分区表的推出不一定意味着对中科院分区表的替代，具体情况还需等待中国科学院情报文献中心领导批复，届时中科院文献情报中心期刊分区表团队将发表相关声明。</p><p data-check-id=\"412883\"><br></p><p data-check-id=\"769326\">新锐学术为独立第三方机构，但与中国科学院文献情报中心《期刊分区表》团队高度重合。新锐学术的法定代表人陈福佑及监事童嗣超，均为中科院期刊分区表团队成员。陈福佑为《中国科学院文献情报中心期刊分区表》和《国际期刊预警名单》项目负责人，童嗣超为中科院文献情报中心分区表用户关系团队负责人。</p><p data-check-id=\"197199\"><br></p><p data-check-id=\"552235\">新锐学术公众号的认证主体为“兰溪市知识创新和应用研究中心”。早在2024年，就能看到中国科学院文献情报中心以“新锐学术”为名，组织学术出版的相关会议，当时的主办单位就是兰溪市知识创新和应用研究中心。</p><p data-check-id=\"650767\"><br></p><p data-check-id=\"302940\">在内容上，新锐分区涵盖共22299 种期刊和15种重要会议论文集<span class=\"text-remarks\" label=\"备注\">（计算机领域）</span>，引入大模型与智能算法。另外，不再单独发布预警名单，而是将预警机制嵌入分区体系，对37种期刊标注“under review”。</p><p data-check-id=\"599883\"><br></p><h2 data-check-id=\"611991\" label=\"大标题\" class=\"text-big-title\">官方分区变成民间分区？</h2><p data-check-id=\"205989\"><br></p><p data-check-id=\"600931\">从“中科院分区”到“新锐分区”的变化，让不少人下意识地将其视为一个“民间榜单”，从而对其公信力产生怀疑。但某种意义上，这种担忧也出于误读。<strong>分区表本身从一开始就并非官方评价体系，只是在长期使用中逐渐被赋予了类似“官方”的权威色彩。</strong></p><p data-check-id=\"334166\"><br></p><p data-check-id=\"178351\">中国科学院文献情报中心《期刊分区表》，长期以来被简称为“中科院分区”，它的影响力很大程度上来自中国科学院的称号。</p><p data-check-id=\"390653\"><br></p><p data-check-id=\"309797\">2018年，由于发布的期刊分区表中，“核物理”在“物理与天体物理学”这一大类中不再独立为二级学科，而是合并至粒子物理，致使核物理学科公认最好的几本期刊被划分到了3区和4区。招致相关科学家的反弹<sup>[2]</sup>。</p><p data-check-id=\"616818\"><br></p><p data-check-id=\"341715\">中国物理学会核物理分会在《知识分子》上发文，批评根据影响因子对论文进行分区不当，更不应该采用中科院的权威名义发布。如果确实要另起炉灶，做期刊分区，则应在广泛征求意见基础上设立严格的审批程序，按要求公示审批过程和参与人员等<sup>[3]</sup>。</p><p data-check-id=\"244407\"><br></p><p data-check-id=\"976697\">中国科学院文献情报中心随后发布了致歉说明，表示期刊分区表“是我中心的一项课题研究，起始于2004年，目的是为科研人员了解本领域学术期刊的影响力以及期刊评价工作提供参考。相关成果发布虽冠以“中科院”名义，但并未经授权，我们对此深表歉意，并将在以后的工作中予以改正”<sup>[4]</sup>。</p><p data-check-id=\"913613\"><br></p><p data-check-id=\"137048\">此后，相关公众号的名称在2018年底从“中科院JCR期刊分区”，改为“中科院文献情报中心分区表”。到了2023年9月，又改为“期刊分区表”。从这一系列调整可以看出，期刊分区表已经在逐渐淡化了与“中科院”的直接关联，但大部分科研人员还是习惯性将其称为“中科院分区”。</p><p data-check-id=\"958042\"><br></p><p data-check-id=\"403786\">至于用途上，中科院文献情报中心分区表一直以来都明确提出“直接将分区表数据用于个人评价需谨慎”，更直白的说法是“不建议任何单位和个人将分区表用于微观科技评价，由此引发的争议和纠纷，中国科学院文献情报中心不承担任何责任”。</p><p data-check-id=\"827890\"><br></p><p data-check-id=\"796836\">按照官方的说法，期刊分区的功能本应该是，“评估国际学术期刊的学术影响力，可为学术投稿提供参考、为科研管理部门的宏观判断提供支撑”。</p><p data-check-id=\"771418\"><br></p><p data-check-id=\"305955\">然而，在实际的运行中，期刊分区表不仅是一项研究，也不仅是一项针对期刊的评价工具，而是成为了科研评价制度和政策中非常关键的一环。这份影响力仍然离不开“中科院”的称号，而外界对此也一直有不少争论。</p><p data-check-id=\"627639\"><br></p><p data-check-id=\"760510\">目前，新锐学术在介绍中表示自身为独立第三方机构，《新锐期刊分区表》为独立第三方<span class=\"text-remarks\" label=\"备注\">（新锐学术）</span>发布的公益性成果。从名称和定位来看，期刊分区表与中科院的关联在逐步弱化，转而其独立性。</p><p data-check-id=\"887445\"><br></p><p data-check-id=\"247156\">这也让不少科研人员开始质疑，一旦“中科院分区”换成“新锐分区”，发布单位从“中科院”变成“独立第三方”，那么分区表在科研评价体系中的影响力还能否维持。另外，在多位成员有着中科院情报文献中心职位背景下，新锐学术如何理清其中的知识产权和种种关系，维持独立第三方的身份。</p><p data-check-id=\"776468\"><br></p><h2 data-check-id=\"565743\" label=\"大标题\" class=\"text-big-title\">国产期刊仍有特殊支持？</h2><p data-check-id=\"271439\"><br></p><p data-check-id=\"705079\">去年，由于一些传统国际知名期刊<span class=\"text-remarks\" label=\"备注\">（如《Nano Letters》）</span>意外降至二区。与此同时，部分本土期刊升区异常迅速，在科研人员中引起了很大反响。</p><p data-check-id=\"588268\"><br></p><p data-check-id=\"245388\">这和期刊分区表对于部分本土期刊的优待分不开。期刊分区表团队始终明确表达了对国内期刊的扶持立场。从2019年起，期刊分区表推出“中国SCI期刊支持计划”，去年已经开启了第二期<span class=\"text-remarks\" label=\"备注\">（2025-2029）</span>，从计划目标“提升中国期刊入选高分区比例”中，不难看出这种支持的具体指向。</p><p data-check-id=\"981789\"><br></p><p data-check-id=\"504414\">具体哪种期刊获得了分区上的支持？以2025年分区表《中国科学：材料科学》<span class=\"text-remarks\" label=\"备注\">（Science China Materials）</span>为例，在期刊分区表它的相关条目页面中，就标注了“中国SCI期刊支持计划”。</p><p data-check-id=\"396101\"><br></p><p data-check-id=\"859901\">去年西安交通大学赵宇鑫曾在Nature发表文章，批评了中国当前的科研评价体系过度依赖本土的期刊分区方法。他认为现在的分区方法不够透明，一些国内刊物排名甚至高于国际知名刊物。根据他的了解，一些同事在海外知名期刊上发表的工作，在晋升评审中获得的关注反而不如发表在本地期刊上的研究<sup>[5]</sup>。</p><p data-check-id=\"542502\"><br></p><p data-check-id=\"711419\">期刊分区表团队杨立英研究员随后也在Nature发文回应，表示将对“分区表”这种评价工具的批评与对中国整个研究评价体系的批评混为一谈，在逻辑上是牵强附会的<sup>[6]</sup>。</p><p data-check-id=\"953130\"><br></p><p data-check-id=\"455271\">在今年年初新锐学术组织的学术会议上，会议的介绍仍然明确提到了对国产英文期刊的支持，“新创英文科技期刊，没有漫长岁月的声誉积累，只能通过评价体系的排名，快速进入大家视野，脱离邀稿瓶颈期......分区表为了中国期刊的发展，推出一系列的公益措施，新创英文期刊更需要充分使用这些利好政策”。而会议的内容之一，就是“2026年分区表发布动态”<sup>[7]</sup>。</p><p data-check-id=\"432230\"><br></p><p data-check-id=\"199431\">另外，中文期刊的评价可能也有不同的标准。去年的期刊分区表提到，要“探索中英文科技期刊‘同质等效’评价，被WoS平台收录的中文科技期刊，按照中文引用数据和专家意见划分分区”。</p><p data-check-id=\"930830\"><br></p><p data-check-id=\"682538\">去年，影响因子为 1.1 的《科学通报（中文版）》<span class=\"text-remarks\" label=\"备注\">（Chinese Science Bulletin Chinese）</span>从四区直接升至一区，引发争议。在分区表系统中，其条目特别标注了“中英文科技期刊‘同质等效’评价”，表明它得到了该政策的支持。</p><p data-check-id=\"588979\"><br></p><p data-check-id=\"136426\">而“同质等效”这个词，在新锐分区的介绍中也有提及，介绍中写道“收录中国主办英文期刊705种，纳入中文期刊34种，探索构建中英文期刊同质等效的评价体系”。</p><p data-check-id=\"937188\"><br></p><p data-check-id=\"717472\">归根结底，问题不只是“中科院分区”会不会被“新锐分区”取代。对于科研人员而言，更关键的是：<strong>一个早已深度嵌入投稿、聘用、晋升与奖励体系的评价工具，究竟应以怎样的身份发布，又应以怎样的透明度、程序与边界获得信任。</strong>名称的变化或许只是开始，真正有待回答的，仍是分区表的公信力从何而来。</p><p data-check-id=\"202934\"><br></p><p data-check-id=\"322649\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">参考资料：</span></p><p data-check-id=\"479342\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[1] 新锐学术. (2026). 新锐期刊分区表（XR‑Scholar）.</span></p><p data-check-id=\"360430\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[2] 王京仔.物理去哪儿了：一次期刊分区风波. (2018， December 11). 法治周末.</span></p><p data-check-id=\"585074\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[3] 中国物理学会核物理分会. (2018， December 11).核物理被外行一夜“取消”了？专家集体抗议</span></p><p data-check-id=\"297223\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[4] 中国科学院文献情报中心. (2018， November 19). 关于《中科院期刊分区表》的说明.中国科学院文献情报中心.</span></p><p data-check-id=\"843330\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[5] Zhao， Y. (2025， May 7). Why China needs to review its approach to research evaluation. Nature.</span></p><p data-check-id=\"656725\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[6] Yang， L. (2025， July 15). China’s journal ranking system stands up to scrutiny. Nature.</span></p><p data-check-id=\"889316\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\">[7] 新锐学术. (2026， January 12). 不了解分区规则，新创英文期刊将错失快速发展的窗口期！</span></p><p data-check-id=\"411492\" label=\"正文\" class=\"text-normal\"><span class=\"text-remarks\" label=\"备注\"><br></span></p><p data-check-id=\"456643\"></p><p data-check-id=\"271468\"><span class=\"text-remarks\" label=\"备注\">本文来自微信公众号：</span><a href=\"https://mp.weixin.qq.com/s/G0VkWMPyDaRZVHBDx4lI1g\" target=\"_blank\" rel=\"nofollow\"><span class=\"text-remarks\">知识分子</span></a><span class=\"text-remarks\">，作者：张天祁</span></p></div><!----></div></div><div class=\"article-type\" data-v-a9f550cd=\"\"><!----><a class=\"article-type-channel\" target=\"_blank\" href=\"/channel/106\" data-v-a9f550cd=\"\">频道: 社会文化</a></div><!----><div class=\"article__reprinted-center\" data-v-a9f550cd=\"\"><div style=\"\" class=\"article__reprinted-explain\" data-v-a9f550cd=\"\">本内容由作者授权发布，观点仅代表作者本人，不代表虎嗅立场。<br>如对本稿件有异议或投诉，请联系 tougao@huxiu.com。</div><div style=\"\" class=\"article__reprinted-explain-app\" data-v-a9f550cd=\"\">正在改变与想要改变世界的人，都在<a class=\"download_a\" href=\"https://www.huxiu.com/app.html\" target=\"_blank\"> 虎嗅APP<span class=\"download-i\"></span></a></div></div><div class=\"article__reward-wrap\" data-v-a9f550cd=\"\"><!--[--><section data-v-cf1248dc=\"\"><div class=\"reward-wrap\" data-v-cf1248dc=\"\"><div data-v-cf1248dc=\"\"><div class=\"reward-wrap__status__btn pointer middle-center\" data-v-cf1248dc=\"\"> 赞赏 <div class=\"hide\" data-v-cf1248dc=\"\"><span class=\"\" data-v-cf1248dc=\"\"> 关闭赞赏 </span><span class=\"hide\" data-v-cf1248dc=\"\"> 开启赞赏 </span></div></div><div class=\"reward-wrap__text justify-center\" data-v-cf1248dc=\"\"><p class=\"reward-wrap__text__p\" data-v-cf1248dc=\"\">支持一下 <span class=\"hide\" data-v-cf1248dc=\"\"> &nbsp;&nbsp;修改 </span></p><div class=\"reward-wrap__text__inp-wrap\" data-v-cf1248dc=\"\"><input class=\"reward-wrap__text__inp\" type=\"text\" maxlength=\"15\" value=\"支持一下\" data-v-cf1248dc=\"\"><span class=\"sure-btn\" data-v-cf1248dc=\"\">确定</span></div></div><!----></div></div></section><span data-v-cf1248dc=\"\" data-v-6dbd9995=\"\"></span><!--]--></div><span data-v-a9f550cd=\"\"></span></div></div></section></div><span data-v-a9f550cd=\"\"></span></div><!--[--><!----><!----><!--]--><!--]--><!--]--></body></html>"
+    },
+    {
+      "id": "news-1774626719302-2",
+      "title": "Docker 24.0 发布：容器启动速度提升40%",
+      "url": "https://www.docker.com/blog/",
+      "source": "Docker Blog",
+      "icon": "🐳",
+      "category": "tech",
+      "time": "2026-03-27T15:51:59.302Z",
+      "tags": [
+        "Docker",
+        "容器"
+      ],
+      "excerpt": "Docker发布最新版本，带来重大性能提升...",
+      "summary": "",
+      "content": ""
+    },
+    {
+      "id": "demo-1774626152573-1",
+      "title": "AI 已能写 80% 代码，但 Agent 也有致命短板！",
+      "url": "https://www.infoq.cn/article/demo1",
+      "source": "InfoQ",
+      "icon": "📰",
+      "category": "ai",
+      "time": "2026-03-27T15:42:32.573Z",
+      "tags": [
+        "AI",
+        "技术"
+      ],
+      "excerpt": "根据最新研究，AI已经能够编写80%的代码...",
+      "summary": "AI已经能够编写80%的代码，但Agent仍存在致命短板。",
+      "content": "<p>根据最新研究，AI已经能够编写80%的代码，但Agent仍存在致命短板。</p>"
+    },
+    {
+      "id": "demo-1774626152573-2",
+      "title": "Docker 24.0 发布：容器启动速度提升40%",
+      "url": "https://www.docker.com/blog/demo2",
+      "source": "Docker Blog",
+      "icon": "🐳",
+      "category": "tech",
+      "time": "2026-03-27T15:42:32.573Z",
+      "tags": [
+        "Docker",
+        "容器"
+      ],
+      "excerpt": "Docker 发布新版本，性能大幅提升...",
+      "summary": "Docker新版本带来了40%的性能提升。",
+      "content": "<p>Docker新版本带来了40%的性能提升。</p>"
+    },
+    {
+      "id": "demo-1774626152573-3",
+      "title": "Kubernetes 1.29 新特性解读",
+      "url": "https://kubernetes.io/blog/demo3",
+      "source": "Kubernetes Blog",
+      "icon": "☸️",
+      "category": "dev",
+      "time": "2026-03-27T15:42:32.573Z",
+      "tags": [
+        "Kubernetes",
+        "云原生"
+      ],
+      "excerpt": "Kubernetes 发布1.29版本...",
+      "summary": "Kubernetes 1.29带来了许多新特性。",
+      "content": "<p>Kubernetes 1.29带来了许多新特性。</p>"
+    },
+    {
+      "id": "infoq-1774622646273-0",
+      "title": "AI 已能写 80% 代码，但 Agent 也有致命短板！OpenAI Codex 技术总监：问错了，比不会写更麻烦",
+      "url": "https://www.infoq.cn/article/bycqtv38Ng71KoUjC0bH",
+      "source": "InfoQ",
+      "icon": "📰",
+      "category": "tech",
+      "time": "2026-03-27T14:44:06.273Z",
+      "tags": [
+        "技术",
+        "深度"
+      ]
+    },
+    {
+      "id": "infoq-1774622646273-4",
+      "title": "让外部知识“长入”模型：动态化与参数化 RAG 技术探索",
+      "url": "https://www.infoq.cn/article/bdHrWhvKqigAAd3ldh53",
+      "source": "InfoQ",
+      "icon": "📰",
+      "category": "tech",
+      "time": "2026-03-27T14:44:06.273Z",
+      "tags": [
+        "技术",
+        "深度"
+      ]
+    },
+    {
+      "id": "infoq-1774622646273-7",
+      "title": "用得越多、失业越快？GitHub 大改 Copilot 规则：默认拿个人代码训练 AI，还搬出 Anthropic 挡枪！",
+      "url": "https://www.infoq.cn/news/4ODfuXhhcI9mAeYepXY0",
+      "source": "InfoQ",
+      "icon": "📰",
+      "category": "tech",
+      "time": "2026-03-27T14:44:06.273Z",
+      "tags": [
+        "技术",
+        "深度"
+      ]
+    },
+    {
+      "id": "infoq-1774622646273-9",
+      "title": "AI 是一次范式转移，选准生态位，投入自然清晰 | 飞猪 CTO 陈烨谈战略定力、组织进化与工程落地",
+      "url": "https://www.infoq.cn/article/lwk5AQiWPSRPAxRPpM3W",
+      "source": "InfoQ",
+      "icon": "📰",
+      "category": "tech",
+      "time": "2026-03-27T14:44:06.273Z",
+      "tags": [
+        "技术",
+        "深度"
+      ]
+    },
+    {
+      "id": "sf-1774622648435-1",
+      "title": "AI搭子智能相伴，帮您理清思路、处理琐事、搞定所有！",
+      "url": "https://segmentfault.com/reco/1640000047668769?utm_source=sf-homepage-aside",
+      "source": "SegmentFault",
+      "icon": "💡",
+      "category": "dev",
+      "time": "2026-03-27T14:44:08.435Z",
+      "tags": [
+        "开发",
+        "社区"
+      ]
+    },
+    {
+      "id": "csdn-1774622650477-2",
+      "title": "微信回应为什么没有“已读”功能；罗技中国就「广告侮辱消费者」道歉；小米正式终止MIUI更新 | 极客头条",
+      "url": "https://blog.csdn.net/weixin_39786569/article/details/159534783",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.477Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-3",
+      "title": "从“模型底座”到“智能体涌现”：透视 2026 大语言模型的技术演进航向",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159517430",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-4",
+      "title": "默认拿个人代码喂AI！GitHub新规引开发者吐槽：这叫“强行授权”",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159517338",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-5",
+      "title": "日薪5500+元的「AI喷子」火了？这家公司找人“专职骂AI”：目标是把它骂崩溃、反复“翻车”",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159517403",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-6",
+      "title": "aiXcoder 全新推出代码变更应用模型 aiX-apply-4B，效果比肩 DeepSeek-V3.2，推理效率提升 15 倍",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159549186",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-7",
+      "title": "从不1V1开会、不搞接班那一套，黄仁勋最新访谈：10万个智能体造不出下一个英伟达、AGI已实现、OpenClaw就是Token时代的iPhone",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159478457",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-8",
+      "title": "月下载9700万的Python库被“投毒”！Karpathy紧急警告：一行pip install，敏感数据全泄",
+      "url": "https://blog.csdn.net/csdnnews/article/details/159478395",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "csdn-1774622650478-9",
+      "title": "黄仁勋罕见谈死亡：希望在工作中突然离世；小米汽车被“老头乐”起诉，涉及三项外观专利；Claude Code推出「自动模式」 | 极客头条",
+      "url": "https://blog.csdn.net/weixin_39786569/article/details/159500245",
+      "source": "CSDN",
+      "icon": "📝",
+      "category": "dev",
+      "time": "2026-03-27T14:44:10.478Z",
+      "tags": [
+        "开发",
+        "国内"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-1",
+      "title": "OpenAI 发布 GPT-5：性能提升50%",
+      "url": "https://example.com/gpt5",
+      "source": "TechCrunch",
+      "icon": "🤖",
+      "category": "ai",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "AI",
+        "OpenAI",
+        "GPT"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-2",
+      "title": "Docker 24.0 发布：容器启动速度提升40%",
+      "url": "https://example.com/docker24",
+      "source": "Docker Blog",
+      "icon": "🐳",
+      "category": "tech",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Docker",
+        "容器"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-3",
+      "title": "Kubernetes 1.29 新特性：支持动态资源分配",
+      "url": "https://example.com/k8s129",
+      "source": "Kubernetes Blog",
+      "icon": "☸️",
+      "category": "tech",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Kubernetes",
+        "云原生"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-4",
+      "title": "Vue 3.5 正式发布：性能优化与 Composition API 增强",
+      "url": "https://example.com/vue35",
+      "source": "Vue Blog",
+      "icon": "💚",
+      "category": "software",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Vue",
+        "前端",
+        "JavaScript"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-5",
+      "title": "Rust 1.78 发布：编译速度提升20%",
+      "url": "https://example.com/rust178",
+      "source": "Rust Blog",
+      "icon": "🦀",
+      "category": "software",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Rust",
+        "编程语言"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-6",
+      "title": "Apple M4 芯片发布：AI 性能提升3倍",
+      "url": "https://example.com/applem4",
+      "source": "Apple News",
+      "icon": "🍎",
+      "category": "hardware",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Apple",
+        "硬件",
+        "AI芯片"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-7",
+      "title": "NVIDIA RTX 5090 规格曝光：性能翻倍",
+      "url": "https://example.com/rtx5090",
+      "source": "TechPowerUp",
+      "icon": "🎮",
+      "category": "hardware",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "NVIDIA",
+        "显卡",
+        "硬件"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-8",
+      "title": "GitHub Copilot X 发布：支持 GPT-4 Vision",
+      "url": "https://example.com/copilotx",
+      "source": "GitHub Blog",
+      "icon": "🐙",
+      "category": "software",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "GitHub",
+        "AI",
+        "编程工具"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-9",
+      "title": "Linux 6.8 内核发布：性能与安全双重提升",
+      "url": "https://example.com/linux68",
+      "source": "LWN",
+      "icon": "🐧",
+      "category": "tech",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "Linux",
+        "内核",
+        "开源"
+      ]
+    },
+    {
+      "id": "tech-1774622362203-10",
+      "title": "特斯拉发布 FSD V13：完全自动驾驶更进一步",
+      "url": "https://example.com/teslafsd",
+      "source": "Electrek",
+      "icon": "🚗",
+      "category": "ai",
+      "time": "2026-03-27T14:39:22.203Z",
+      "tags": [
+        "特斯拉",
+        "自动驾驶",
+        "AI"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-0",
+      "title": "Anthropic wins injunction against Trump administration over Defense Department saga",
+      "url": "https://techcrunch.com/2026/03/26/anthropic-wins-injunction-against-trump-administration-over-defense-department-saga/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-1",
+      "title": "David Sacks is done as AI czar — here’s what he’s doing instead",
+      "url": "https://techcrunch.com/2026/03/26/david-sacks-is-done-as-ai-czar-heres-what-hes-doing-instead/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-2",
+      "title": "16 of the most interesting startups from YC W26 Demo Day",
+      "url": "https://techcrunch.com/2026/03/26/16-of-the-most-interesting-startups-from-yc-w26-demo-day/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-3",
+      "title": "Netflix confirms it’s raising prices again",
+      "url": "https://techcrunch.com/2026/03/26/netflix-confirms-its-raising-prices-again/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-4",
+      "title": "OpenAI abandons yet another side quest: ChatGPT’s erotic mode",
+      "url": "https://techcrunch.com/2026/03/26/openai-abandons-yet-another-side-quest-chatgpts-erotic-mode/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-5",
+      "title": "A major hacking tool has leaked online, putting millions of iPhones at risk. Here’s what you need to know.",
+      "url": "https://techcrunch.com/2026/03/26/a-major-hacking-tool-has-leaked-online-putting-millions-of-iphones-at-risk-heres-what-you-need-to-know/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-6",
+      "title": "Silicon Valley’s two biggest dramas have intersected: LiteLLM and Delve",
+      "url": "https://techcrunch.com/2026/03/26/delve-did-the-security-compliance-on-litellm-an-ai-project-hit-by-malware/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-7",
+      "title": "Conntour raises $7M from General Catalyst, YC to build an AI search engine for security video systems",
+      "url": "https://techcrunch.com/2026/03/26/conntour-raises-7m-from-general-catalyst-yc-to-build-an-ai-search-engine-for-security-video-systems/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-8",
+      "title": "Apple says no one using Lockdown Mode has been hacked with spyware",
+      "url": "https://techcrunch.com/2026/03/27/apple-says-no-one-using-lockdown-mode-has-been-hacked-with-spyware/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-9",
+      "title": "David Sacks is done as AI czar — here’s what he’s doing instead",
+      "url": "https://techcrunch.com/2026/03/26/david-sacks-is-done-as-ai-czar-heres-what-hes-doing-instead/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-10",
+      "title": "Anthropic wins injunction against Trump administration over Defense Department saga",
+      "url": "https://techcrunch.com/2026/03/26/anthropic-wins-injunction-against-trump-administration-over-defense-department-saga/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-11",
+      "title": "You can now transfer your chats and personal information from other chatbots directly into Gemini",
+      "url": "https://techcrunch.com/2026/03/26/you-can-now-transfer-your-chats-and-personal-information-from-other-chatbots-directly-into-gemini/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-12",
+      "title": "Wikipedia cracks down on the use of AI in article writing",
+      "url": "https://techcrunch.com/2026/03/26/wikipedia-cracks-down-on-the-use-of-ai-in-article-writing/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-13",
+      "title": "Mastodon is making its decentralized social network easier to use with its latest revamp",
+      "url": "https://techcrunch.com/2026/03/26/mastodon-is-making-its-decentralized-social-network-easier-to-use-with-its-latest-revamp/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "tc-1774622196331-14",
+      "title": "Netflix confirms it’s raising prices again",
+      "url": "https://techcrunch.com/2026/03/26/netflix-confirms-its-raising-prices-again/",
+      "source": "TechCrunch",
+      "icon": "🚀",
+      "category": "tech",
+      "time": "2026-03-27T14:36:36.331Z",
+      "tags": [
+        "科技",
+        "国际"
+      ]
+    },
+    {
+      "id": "ithome-1774622197492-0",
+      "title": "小米 MIUI 正式停更",
+      "url": "https://www.ithome.com/0/932/771.htm",
+      "source": "IT之家",
+      "icon": "🏠",
+      "category": "tech",
+      "time": "2026-03-27T14:36:37.492Z",
+      "tags": [
+        "科技",
+        "国内"
+      ]
+    },
+    {
+      "id": "ithome-1774622197492-1",
+      "title": "罗技中国就违规视频内容致歉",
+      "url": "https://www.ithome.com/0/933/104.htm",
+      "source": "IT之家",
+      "icon": "🏠",
+      "category": "tech",
+      "time": "2026-03-27T14:36:37.492Z",
+      "tags": [
+        "科技",
+        "国内"
+      ]
+    },
+    {
+      "id": "ithome-1774622197493-9",
+      "title": "Win11/10/7 系统镜像下载",
+      "url": "https://www.ithome.com//www.ithome.com/0/655/926.htm",
+      "source": "IT之家",
+      "icon": "🏠",
+      "category": "tech",
+      "time": "2026-03-27T14:36:37.493Z",
+      "tags": [
+        "科技",
+        "国内"
+      ]
+    },
+    {
+      "id": "ithome-1774622197493-12",
+      "title": "iOS 描述文件下载大全",
+      "url": "https://www.ithome.com//www.ithome.com/0/342/425.htm",
+      "source": "IT之家",
+      "icon": "🏠",
+      "category": "tech",
+      "time": "2026-03-27T14:36:37.493Z",
+      "tags": [
+        "科技",
+        "国内"
+      ]
+    },
+    {
+      "id": "ithome-1774622197493-14",
+      "title": "罗技中国发布声明，就“罗技 G 官方旗舰店”违规视频内容致歉",
+      "url": "https://www.ithome.com/0/933/104.htm",
+      "source": "IT之家",
+      "icon": "🏠",
+      "category": "tech",
+      "time": "2026-03-27T14:36:37.493Z",
+      "tags": [
+        "科技",
+        "国内"
+      ]
+    }
+  ]
+}

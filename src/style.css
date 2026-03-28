@@ -1,0 +1,8 @@
+/* 基础重置 - 主样式在 App.vue 中 */
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}

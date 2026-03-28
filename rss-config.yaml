@@ -1,0 +1,98 @@
+# RSS 新闻源配置
+# 更稳定的新闻获取方式
+
+rss_sources:
+  # 国际科技媒体
+  - name: "TechCrunch"
+    url: "https://techcrunch.com/feed/"
+    category: "tech"
+    icon: "🚀"
+    enabled: true
+    
+  - name: "The Verge"
+    url: "https://www.theverge.com/rss/index.xml"
+    category: "tech"
+    icon: "📱"
+    enabled: true
+    
+  - name: "Wired"
+    url: "https://www.wired.com/feed/rss"
+    category: "tech"
+    icon: "🔌"
+    enabled: true
+    
+  - name: "Ars Technica"
+    url: "https://feeds.arstechnica.com/arstechnica/index"
+    category: "tech"
+    icon: "🔬"
+    enabled: true
+    
+  - name: "Hacker News"
+    url: "https://hnrss.org/frontpage"
+    category: "tech"
+    icon: "🔶"
+    enabled: true
+    
+  # 国内科技媒体
+  - name: "少数派"
+    url: "https://sspai.com/feed"
+    category: "tech"
+    icon: "🎨"
+    enabled: true
+    
+  - name: "InfoQ"
+    url: "https://www.infoq.cn/feed"
+    category: "tech"
+    icon: "📰"
+    enabled: true
+    
+  - name: "开源中国"
+    url: "https://www.oschina.net/news/rss"
+    category: "opensource"
+    icon: "🇨🇳"
+    enabled: true
+    
+  - name: "SegmentFault"
+    url: "https://segmentfault.com/feeds/blogs"
+    category: "dev"
+    icon: "💡"
+    enabled: true
+    
+  # 开发者社区
+  - name: "GitHub Blog"
+    url: "https://github.blog/feed/"
+    category: "dev"
+    icon: "🐙"
+    enabled: true
+    
+  - name: "Docker Blog"
+    url: "https://www.docker.com/blog/feed/"
+    category: "dev"
+    icon: "🐳"
+    enabled: true
+    
+  - name: "Kubernetes Blog"
+    url: "https://kubernetes.io/feed.xml"
+    category: "dev"
+    icon: "☸️"
+    enabled: true
+    
+  # 商业科技
+  - name: "36氪"
+    url: "https://36kr.com/feed"
+    category: "business"
+    icon: "🚀"
+    enabled: true
+    
+  - name: "虎嗅"
+    url: "https://www.huxiu.com/rss/0.xml"
+    category: "business"
+    icon: "🐅"
+    enabled: true
+
+# RSS 抓取配置
+fetch_config:
+  timeout: 10000  # 10秒超时
+  max_items: 10   # 每个源最多抓取10条
+  retry_times: 3  # 失败重试3次
+  delay: 1000     # 请求间隔1秒
