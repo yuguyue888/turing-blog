@@ -359,6 +359,7 @@ import { useRouter } from 'vue-router'
 import ArticleForm from '../components/ArticleForm.vue'
 import ToolForm from '../components/ToolForm.vue'
 import NewsForm from '../components/NewsForm.vue'
+import AnalyticsDashboard from '../components/AnalyticsDashboard.vue'
 import { 
   getArticles, addArticle, updateArticle, deleteArticle as removeArticle,
   getTools, addTool, updateTool, deleteTool as removeTool,

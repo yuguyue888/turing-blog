@@ -1028,6 +1028,66 @@ function generateSummary(title, content) {
 
 // 启动服务器
 app.listen(PORT, () => {
+
+// ==================== 认证相关 API ====================
+
+// 修改密码
+app.post('/api/change-password', validateApiKey, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body
+    
+    // 读取当前密码
+    const dataDir = path.join(__dirname, 'data')
+    const credentialsPath = path.join(dataDir, 'credentials.json')
+    
+    let credentials = { username: 'admin', password: 'admin123' }
+    
+    if (fs.existsSync(credentialsPath)) {
+      credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'))
+    }
+    
+    // 验证当前密码
+    if (currentPassword !== credentials.password) {
+      return res.status(400).json({
+        success: false,
+        error: '当前密码不正确'
+      })
+    }
+    
+    // 验证新密码强度
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: '密码至少需要8个字符'
+      })
+    }
+    
+    // 更新密码
+    credentials.password = newPassword
+    
+    // 保存到文件
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true })
+    }
+    
+    fs.writeFileSync(credentialsPath, JSON.stringify(credentials, null, 2))
+    
+    res.json({
+      success: true,
+      message: '密码修改成功'
+    })
+    
+    console.log('✅ 管理员密码已修改')
+    
+  } catch (error) {
+    console.error('修改密码失败:', error)
+    res.status(500).json({
+      success: false,
+      error: '服务器错误'
+    })
+  }
+})
+
   console.log(`🚀 Turing Blog API Server running at http://localhost:${PORT}`);
   console.log(`📚 API Documentation: http://localhost:${PORT}/api`);
   console.log(`🔑 Default API Key: sk-turing-blog-default-key-2026`);
